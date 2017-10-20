@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,27 +19,32 @@
 package <%=packageName%>.web.rest;
 
 import com.codahale.metrics.annotation.Timed;
-<%_ if (dto != 'mapstruct' || service == 'no') { _%>
+<%_ if (dto !== 'mapstruct' || service === 'no') { _%>
 import <%=packageName%>.domain.<%= entityClass %>;
 <%_ } _%>
-<%_ if (service != 'no') { _%>
+<%_ if (service !== 'no') { _%>
 import <%=packageName%>.service.<%= entityClass %>Service;<% } else { %>
-import <%=packageName%>.repository.<%= entityClass %>Repository;<% if (searchEngine == 'elasticsearch') { %>
+import <%=packageName%>.repository.<%= entityClass %>Repository;<% if (searchEngine === 'elasticsearch') { %>
 import <%=packageName%>.repository.search.<%= entityClass %>SearchRepository;<% }} %>
-import <%=packageName%>.web.rest.util.HeaderUtil;<% if (pagination != 'no') { %>
+import <%=packageName%>.web.rest.errors.BadRequestAlertException;
+import <%=packageName%>.web.rest.util.HeaderUtil;<% if (pagination !== 'no') { %>
 import <%=packageName%>.web.rest.util.PaginationUtil;<% } %>
-<%_ if (dto == 'mapstruct') { _%>
+<%_ if (dto === 'mapstruct') { _%>
 import <%=packageName%>.service.dto.<%= entityClass %>DTO;
-<%_ if (service == 'no') { _%>
+<%_ if (service === 'no') { _%>
 import <%=packageName%>.service.mapper.<%= entityClass %>Mapper;
 <%_ } } _%>
-<%_ if (pagination != 'no') { _%>
+<%_ if (jpaMetamodelFiltering) {  _%>
+import <%=packageName%>.service.dto.<%= entityClass %>Criteria;
+import <%=packageName%>.service.<%= entityClass %>QueryService;
+<%_ } _%>
+<%_ if (pagination !== 'no') { _%>
 import io.swagger.annotations.ApiParam;
 <%_ } _%>
 import io.github.jhipster.web.util.ResponseUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-<%_ if (pagination != 'no') { _%>
+<%_ if (pagination !== 'no') { _%>
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
@@ -51,14 +56,14 @@ import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;<% } %>
 import java.net.URI;
 import java.net.URISyntaxException;
-<%_ const viaService = service != 'no';
+<%_ const viaService = service !== 'no';
     if (pagination === 'no' && dto === 'mapstruct' && !viaService && fieldsContainNoOwnerOneToOne === true) { _%>
 import java.util.LinkedList;<% } %>
 import java.util.List;
-import java.util.Optional;<% if (databaseType == 'cassandra') { %>
-import java.util.UUID;<% } %><% if (!viaService && (searchEngine == 'elasticsearch' || fieldsContainNoOwnerOneToOne == true)) { %>
-import java.util.stream.Collectors;<% } %><% if (searchEngine == 'elasticsearch' || fieldsContainNoOwnerOneToOne == true) { %>
-import java.util.stream.StreamSupport;<% } %><% if (searchEngine == 'elasticsearch') { %>
+import java.util.Optional;<% if (databaseType === 'cassandra') { %>
+import java.util.UUID;<% } %><% if (!viaService && (searchEngine === 'elasticsearch' || fieldsContainNoOwnerOneToOne === true)) { %>
+import java.util.stream.Collectors;<% } %><% if (searchEngine === 'elasticsearch' || fieldsContainNoOwnerOneToOne === true) { %>
+import java.util.stream.StreamSupport;<% } %><% if (searchEngine === 'elasticsearch') { %>
 
 import static org.elasticsearch.index.query.QueryBuilders.*;<% } %>
 
@@ -73,9 +78,9 @@ public class <%= entityClass %>Resource {
 
     private static final String ENTITY_NAME = "<%= entityInstance %>";
     <%_
-    const instanceType = (dto == 'mapstruct') ? entityClass + 'DTO' : entityClass;
-    const instanceName = (dto == 'mapstruct') ? entityInstance + 'DTO' : entityInstance;
-    _%><%- include('../../common/inject_template', {viaService: viaService, constructorName: entityClass + 'Resource'}); -%>
+    const instanceType = (dto === 'mapstruct') ? entityClass + 'DTO' : entityClass;
+    const instanceName = (dto === 'mapstruct') ? entityInstance + 'DTO' : entityInstance;
+    _%><%- include('../../common/inject_template', {viaService: viaService, constructorName: entityClass + 'Resource', queryService: jpaMetamodelFiltering}); -%>
 
     /**
      * POST  /<%= entityApiUrl %> : Create a new <%= entityInstance %>.
@@ -89,7 +94,7 @@ public class <%= entityClass %>Resource {
     public ResponseEntity<<%= instanceType %>> create<%= entityClass %>(<% if (validation) { %>@Valid <% } %>@RequestBody <%= instanceType %> <%= instanceName %>) throws URISyntaxException {
         log.debug("REST request to save <%= entityClass %> : {}", <%= instanceName %>);
         if (<%= instanceName %>.getId() != null) {
-            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new <%= entityInstance %> cannot already have an ID")).body(null);
+            throw new BadRequestAlertException("A new <%= entityInstance %> cannot already have an ID", ENTITY_NAME, "idexists");
         }<%- include('../../common/save_template', {viaService: viaService, returnDirectly: false}); -%>
         return ResponseEntity.created(new URI("/api/<%= entityApiUrl %>/" + result.getId()))
             .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
@@ -119,8 +124,9 @@ public class <%= entityClass %>Resource {
 
     /**
      * GET  /<%= entityApiUrl %> : get all the <%= entityInstancePlural %>.
-     *<% if (pagination != 'no') { %>
-     * @param pageable the pagination information<% } if (fieldsContainNoOwnerOneToOne) { %>
+     *<% if (pagination !== 'no') { %>
+     * @param pageable the pagination information<% } if (jpaMetamodelFiltering) { %>
+     * @param criteria the criterias which the requested entities should match<% } else if (fieldsContainNoOwnerOneToOne) { %>
      * @param filter the filter of the request<% } %>
      * @return the ResponseEntity with status 200 (OK) and the list of <%= entityInstancePlural %> in body
      */
@@ -151,13 +157,13 @@ public class <%= entityClass %>Resource {
     public ResponseEntity<Void> delete<%= entityClass %>(@PathVariable <%= pkType %> id) {
         log.debug("REST request to delete <%= entityClass %> : {}", id);<%- include('../../common/delete_template', {viaService: viaService}); -%>
         return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id<% if (pkType !== 'String') { %>.toString()<% } %>)).build();
-    }<% if (searchEngine == 'elasticsearch') { %>
+    }<% if (searchEngine === 'elasticsearch') { %>
 
     /**
      * SEARCH  /_search/<%= entityApiUrl %>?query=:query : search for the <%= entityInstance %> corresponding
      * to the query.
      *
-     * @param query the query of the <%= entityInstance %> search<% if (pagination != 'no') { %>
+     * @param query the query of the <%= entityInstance %> search<% if (pagination !== 'no') { %>
      * @param pageable the pagination information<% } %>
      * @return the result of the search
      */

@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -51,14 +51,15 @@ if (field.fieldValidate === true) {
         if (field.fieldType === 'Float' || field.fieldType === 'Double' || field.fieldType === 'BigDecimal') {
             validators.push('@DecimalMin(value = "' + field.fieldValidateRulesMin + '")');
         } else {
-            validators.push('@Min(value = ' + field.fieldValidateRulesMin + ')');
+            const isLong = (field.fieldValidateRulesMin > MAX_VALUE || field.fieldType == 'Long') ? 'L' : '';
+            validators.push('@Min(value = ' + field.fieldValidateRulesMin + isLong + ')');
         }
     }
     if (rules.indexOf('max') !== -1) {
-        const isLong = (field.fieldValidateRulesMax > MAX_VALUE) ? 'L' : '';
         if (field.fieldType === 'Float' || field.fieldType === 'Double' || field.fieldType === 'BigDecimal') {
             validators.push('@DecimalMax(value = "' + field.fieldValidateRulesMax + '")');
         } else {
+            const isLong = (field.fieldValidateRulesMax > MAX_VALUE || field.fieldType == 'Long') ? 'L' : '';
             validators.push('@Max(value = ' + field.fieldValidateRulesMax + isLong + ')');
         }
     }

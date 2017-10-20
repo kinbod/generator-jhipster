@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,7 +43,6 @@ import java.util.Locale;
  * Service for sending emails.
  * <p>
  * We use the @Async annotation to send emails asynchronously.
- * </p>
  */
 @Service
 public class MailService {
@@ -106,6 +105,7 @@ public class MailService {
         sendEmail(user.getEmail(), subject, content, false, true);
 
     }
+    <%_ if (authenticationType !== 'oauth2') { _%>
 
     @Async
     public void sendActivationEmail(User user) {
@@ -124,6 +124,7 @@ public class MailService {
         log.debug("Sending password reset email to '{}'", user.getEmail());
         sendEmailFromTemplate(user, "passwordResetEmail", "email.reset.title");
     }
+    <%_ } _%>
     <%_ if (enableSocialSignIn) { _%>
 
     @Async

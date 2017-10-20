@@ -1,7 +1,7 @@
 /**
  * Copyright 2013-2017 the original author or authors from the JHipster project.
  *
- * This file is part of the JHipster project, see https://jhipster.github.io/
+ * This file is part of the JHipster project, see http://www.jhipster.tech/
  * for more information.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -88,6 +88,20 @@ const serverFiles = {
             ]
         },
         {
+            condition: generator => generator.jpaMetamodelFiltering,
+            path: SERVER_MAIN_SRC_DIR,
+            templates: [
+                {
+                    file: 'package/service/dto/_EntityCriteria.java',
+                    renameTo: generator => `${generator.packageFolder}/service/dto/${generator.entityClass}Criteria.java`
+                },
+                {
+                    file: 'package/service/_EntityQueryService.java',
+                    renameTo: generator => `${generator.packageFolder}/service/${generator.entityClass}QueryService.java`
+                },
+            ]
+        },
+        {
             condition: generator => generator.searchEngine === 'elasticsearch',
             path: SERVER_MAIN_SRC_DIR,
             templates: [{
@@ -141,7 +155,11 @@ const serverFiles = {
             path: SERVER_TEST_SRC_DIR,
             templates: [{
                 file: 'package/web/rest/_EntityResourceIntTest.java',
-                options: { context: { randexp, _, chalkRed: chalk.red, fs, SERVER_TEST_SRC_DIR } },
+                options: {
+                    context: {
+                        randexp, _, chalkRed: chalk.red, fs, SERVER_TEST_SRC_DIR
+                    }
+                },
                 renameTo: generator => `${generator.packageFolder}/web/rest/${generator.entityClass}ResourceIntTest.java`
             }]
         },
@@ -149,9 +167,9 @@ const serverFiles = {
             condition: generator => generator.gatlingTests,
             path: TEST_DIR,
             templates: [{
-                file: 'gatling/simulations/_EntityGatlingTest.scala',
+                file: 'gatling/user-files/simulations/_EntityGatlingTest.scala',
                 options: { interpolate: INTERPOLATE_REGEX },
-                renameTo: generator => `gatling/simulations/${generator.entityClass}GatlingTest.scala`
+                renameTo: generator => `gatling/user-files/simulations/${generator.entityClass}GatlingTest.scala`
             }]
         }
     ]
@@ -361,8 +379,8 @@ function writeFiles() {
                 }
                 this.addChangelogToLiquibase(`${this.changelogDate}_added_entity_${this.entityClass}`);
 
-                if (this.hibernateCache === 'ehcache') {
-                    this.addEntityToEhcache(this.entityClass, this.relationships, this.packageName, this.packageFolder);
+                if (this.hibernateCache === 'ehcache' || this.hibernateCache === 'infinispan') {
+                    this.addEntityToCache(this.entityClass, this.relationships, this.packageName, this.packageFolder, this.hibernateCache);
                 }
             }
         },
@@ -374,7 +392,7 @@ function writeFiles() {
                     field.enumInstance = _.lowerFirst(fieldType);
                     const enumInfo = {
                         enumName: fieldType,
-                        enumValues: field.fieldValues,
+                        enumValues: field.fieldValues.split(',').join(', '),
                         enumInstance: field.enumInstance,
                         angularAppName: this.angularAppName,
                         enums: field.fieldValues.replace(/\s/g, '').split(','),

@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,35 +17,31 @@
  limitations under the License.
 -%>
 const webpack = require('webpack');
-const path = require('path');
-const commonConfig = require('./webpack.common.js');
 const writeFilePlugin = require('write-file-webpack-plugin');
 const webpackMerge = require('webpack-merge');
 const BrowserSyncPlugin = require('browser-sync-webpack-plugin');
-const ExtractTextPlugin = require("extract-text-webpack-plugin");
-const ENV = 'dev';
-const execSync = require('child_process').execSync;
-const fs = require('fs');
-const ddlPath = './<%= BUILD_DIR %>www/vendor.json';
+const WebpackNotifierPlugin = require('webpack-notifier');
+const path = require('path');
 
-if (!fs.existsSync(ddlPath)) {
-    execSync('webpack --config webpack/webpack.vendor.js');
-}
+const utils = require('./utils.js');
+const commonConfig = require('./webpack.common.js');
+
+const ENV = 'development';
 
 module.exports = webpackMerge(commonConfig({ env: ENV }), {
-    devtool: 'inline-source-map',
+    devtool: 'eval-source-map',
     devServer: {
         contentBase: './<%= BUILD_DIR %>www',
         proxy: [{
-            context: [<% if (authenticationType === 'oauth2') { %>
-                '/oauth',<% } %><% if (authenticationType === 'uaa') { %>
+            context: [<% if (authenticationType === 'uaa') { %>
                 '/<%= uaaBaseName.toLowerCase() %>',<% } %>
                 /* jhipster-needle-add-entity-to-webpack - JHipster will add entity api paths here */
                 '/api',
                 '/management',
                 '/swagger-resources',
                 '/v2/api-docs',
-                '/h2-console'
+                '/h2-console',
+                '/auth'
             ],
             target: 'http://127.0.0.1:<%= serverPort %>',
             secure: false
@@ -57,18 +53,54 @@ module.exports = webpackMerge(commonConfig({ env: ENV }), {
             ws: true
         }<% } %>]
     },
+    entry: {
+        polyfills: './<%= MAIN_SRC_DIR %>app/polyfills',
+        <%_ if (useSass) { _%>
+        global: './<%= MAIN_SRC_DIR %>content/scss/global.scss',
+        <%_ } else { _%>
+        global: './<%= MAIN_SRC_DIR %>content/css/global.css',
+        <%_ } _%>
+        main: './<%= MAIN_SRC_DIR %>app/app.main'
+    },
     output: {
-        path: path.resolve('<%= BUILD_DIR %>www'),
+        path: utils.root('<%= BUILD_DIR %>www'),
         filename: 'app/[name].bundle.js',
         chunkFilename: 'app/[id].chunk.js'
     },
     module: {
         rules: [{
             test: /\.ts$/,
-            loaders: [
-                'tslint-loader'
-            ],
+            enforce: 'pre',
+            loaders: 'tslint-loader',
             exclude: ['node_modules', new RegExp('reflect-metadata\\' + path.sep + 'Reflect\\.ts')]
+        },
+        {
+            test: /\.ts$/,
+            loaders: [
+                'angular2-template-loader',
+                'awesome-typescript-loader'
+            ],
+            exclude: ['node_modules/generator-jhipster']
+        },
+        <%_ if (useSass) { _%>
+        {
+            test: /\.scss$/,
+            loaders: ['to-string-loader', 'css-loader', 'sass-loader'],
+            exclude: /(vendor\.scss|global\.scss)/
+        },
+        {
+            test: /(vendor\.scss|global\.scss)/,
+            loaders: ['style-loader', 'css-loader', 'postcss-loader', 'sass-loader']
+        },
+        <%_ } _%>
+        {
+            test: /\.css$/,
+            loaders: ['to-string-loader', 'css-loader'],
+            exclude: /(vendor\.css|global\.css)/
+        },
+        {
+            test: /(vendor\.css|global\.css)/,
+            loaders: ['style-loader', 'css-loader']
         }]
     },
     plugins: [
@@ -82,12 +114,15 @@ module.exports = webpackMerge(commonConfig({ env: ENV }), {
         }, {
             reload: false
         }),
-        new ExtractTextPlugin('styles.css'),
         new webpack.NoEmitOnErrorsPlugin(),
         new webpack.NamedModulesPlugin(),
         new writeFilePlugin(),
         new webpack.WatchIgnorePlugin([
-            path.resolve('./src/test'),
-        ])
+            utils.root('src/test'),
+        ]),
+        new WebpackNotifierPlugin({
+            title: 'JHipster',
+            contentImage: path.join(__dirname, 'logo-jhipster.png')
+        })
     ]
 });

@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +23,7 @@ import { CommonModule } from '@angular/common';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { NgJhipsterModule } from 'ng-jhipster';
 import { InfiniteScrollModule } from 'ngx-infinite-scroll';
+import { CookieModule } from 'ngx-cookie';
 
 @NgModule({
     imports: [
@@ -35,7 +36,8 @@ import { InfiniteScrollModule } from 'ngx-infinite-scroll';
             defaultI18nLang: '<%= nativeLanguage %>'
             <%_ } _%>
         }),
-        InfiniteScrollModule
+        InfiniteScrollModule,
+        CookieModule.forRoot()
     ],
     exports: [
         FormsModule,
@@ -46,4 +48,4 @@ import { InfiniteScrollModule } from 'ngx-infinite-scroll';
         InfiniteScrollModule
     ]
 })
-export class <%=angular2AppName%>SharedLibsModule {}
+export class <%=angularXAppName%>SharedLibsModule {}

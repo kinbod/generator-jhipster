@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +45,7 @@ This application is configured for Service Discovery and Configuration with <% i
 <%_ if(skipClient) { _%>
 To start your application in the dev profile, simply run:
 
-    <% if (buildTool == 'maven') { %>./mvnw<% } %><% if (buildTool == 'gradle'){ %>./gradlew<% } %>
+    <% if (buildTool === 'maven') { %>./mvnw<% } %><% if (buildTool === 'gradle'){ %>./gradlew<% } %>
 
 <%_ } _%>
 <%_ if(!skipClient) { _%>
@@ -74,8 +74,8 @@ We use [Gulp][] as our build system. Install the Gulp command-line tool globally
 
 Run the following commands in two separate terminals to create a blissful development experience where your browser
 auto-refreshes when files change on your hard drive.
-<% if (buildTool == 'maven') { %>
-    ./mvnw<% } %><% if (buildTool == 'gradle') { %>
+<% if (buildTool === 'maven') { %>
+    ./mvnw<% } %><% if (buildTool === 'gradle') { %>
     ./gradlew<% } %>
 <%_ if (clientFramework !== 'angular1') { _%>
     <%= clientPackageManager %> start
@@ -85,6 +85,97 @@ specifying a newer version in [package.json](package.json). You can also run `<%
 Add the `help` flag on any command to see how you can use it. For example, `<%= clientPackageManager %> help update`.
 
 The `<%= clientPackageManager %> run` command will list all of the scripts available to run for this project.
+<%_ if (authenticationType === 'oauth2') { _%>
+
+## OAuth 2.0 / OpenID Connect
+
+Congratulations! You've selected an excellent way to secure your JHipster application. If you're not sure what OAuth and OpenID Connect (OIDC) are, please see [What the Heck is OAuth?](https://developer.okta.com/blog/2017/06/21/what-the-heck-is-oauth)
+
+To log in to your app, you'll need to have [Keycloak](https://keycloak.org) up and running. The JHipster Team has created a Docker container for you that has the default users and roles. Start Keycloak using the following command.
+
+```
+docker-compose -f src/main/docker/keycloak.yml up
+```
+
+The security settings in `src/main/resources/application.yml` are configured for this image.
+
+```yaml
+security:
+    basic:
+        enabled: false
+    oauth2:
+        client:
+            accessTokenUri: http://localhost:9080/auth/realms/jhipster/protocol/openid-connect/token
+            userAuthorizationUri: http://localhost:9080/auth/realms/jhipster/protocol/openid-connect/auth
+            clientId: web_app
+            clientSecret: web_app
+            clientAuthenticationScheme: form
+            scope: openid profile email
+        resource:
+            userInfoUri: http://localhost:9080/auth/realms/jhipster/protocol/openid-connect/userinfo
+            tokenInfoUri: http://localhost:9080/auth/realms/jhipster/protocol/openid-connect/token/introspect
+            preferTokenInfo: false
+```
+
+### Okta
+
+If you'd like to use Okta instead of Keycloak, you'll need to change a few things. First, you'll need to create a free developer account at <https://developer.okta.com/signup/>. After doing so, you'll get your own Okta domain, that has a name like `https://dev-123456.oktapreview.com`.
+
+Modify `src/main/resources/application.yml` to use your Okta settings.
+
+```yaml
+security:
+    basic:
+        enabled: false
+    oauth2:
+        client:
+            accessTokenUri: https://{yourOktaDomain}.com/oauth2/default/v1/token
+            userAuthorizationUri: https://{yourOktaDomain}.com/oauth2/default/v1/authorize
+            clientId: {clientId}
+            clientSecret: {clientSecret}
+            clientAuthenticationScheme: form
+            scope: openid profile email
+        resource:
+            userInfoUri: https://{yourOktaDomain}.com/oauth2/default/v1/userinfo
+            tokenInfoUri: https://{yourOktaDomain}.com/oauth2/default/v1/introspect
+            preferTokenInfo: false
+```
+
+Create an OIDC App in Okta to get a `{clientId}` and `{clientSecret}`. To do this, log in to your Okta Developer account and navigate to **Applications** > **Add Application**. Click **Web** and click the **Next** button. Give the app a name you’ll remember, specify "http://localhost:8080" as a Base URI, and "http://localhost:8080/login" as a Login Redirect URI. Click **Done** and copy the client ID and secret into your `application.yml` file.
+
+Create a `ROLE_ADMIN` and `ROLE_USER` group and add users into them. Create a user (e.g., "admin@jhipster.org" with password "Java is hip in 2017!"). Modify e2e tests to use this account when running integration tests. You'll need to change credentials in `src/test/javascript/e2e/account/account.spec.ts` and `src/test/javascript/e2e/admin/administration.spec.ts`.
+
+Navigate to **API** > **Authorization Servers**, click the **Authorization Servers** tab and edit the default one. Click the **Claims** tab and **Add Claim**. Name it "groups" or "roles", and include it in the ID Token. Set the value type to "Groups" and set the filter to be a Regex of `.*`.
+
+After making these changes, you should be good to go! If you have any issues, please post them to [Stack Overflow](https://stackoverflow.com/questions/tagged/jhipster). Make sure to tag your question with "jhipster" and "okta".
+<%_ } _%>
+
+### Service workers
+
+Service workers are commented by default, to enable them please uncomment the following code.
+
+* The service worker registering script in index.html
+```
+<script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker
+        .register('./sw.js')
+        .then(function() { console.log('Service Worker Registered'); });
+    }
+</script>
+```
+<%_ if (clientFramework !== 'angular1') { _%>
+* The copy file option in webpack-common.js
+```js
+{ from: './src/main/webapp/sw.js', to: 'sw.js' },
+```
+<%_ } else { _%>
+* The copy file option in gulp/copy.js
+```js
+config.app + 'sw.js',
+```
+<%_ } _%>
+Note: Add the respective scripts/assets in `sw.js` that is needed to be cached.
 
 ### Managing dependencies
 
@@ -136,19 +227,40 @@ will generate few files:
     update src/main/webapp/app/app.module.ts
 <%_ } _%>
 
+<%_ if (enableSwaggerCodegen) { _%>
+### Doing API-First development using swagger-codegen
+
+[Swagger-Codegen]() is configured for this application. You can generate API code from the `src/main/resources/swagger/api.yml` definition file by running:
+    <%_ if (buildTool === 'maven') { _%>
+```bash
+./mvnw generate-sources
+```
+    <%_ } _%>
+    <%_ if (buildTool === 'maven') { _%>
+```bash
+./gradlew swagger
+```
+    <%_ } _%>
+Then implements the generated interfaces with `@RestController` classes.
+
+To edit the `api.yml` definition file, you can use a tool such as [Swagger-Editor](). Start a local instance of the swagger-editor using docker by running: `docker-compose -f src/main/docker/swagger-editor.yml up -d`. The editor will then be reachable at [http://localhost:7742](http://localhost:7742).
+
+Refer to [Doing API-First development][] for more details.
+<%_ } _%>
+
 ## Building for production
 
 To optimize the <%= baseName %> application for production, run:
-<% if (buildTool == 'maven') { %>
-    ./mvnw -Pprod clean package<% } %><% if (buildTool == 'gradle') { %>
+<% if (buildTool === 'maven') { %>
+    ./mvnw -Pprod clean package<% } %><% if (buildTool === 'gradle') { %>
     ./gradlew -Pprod clean bootRepackage<% } %>
 
 <%_ if(!skipClient) { _%>
 This will concatenate and minify the client CSS and JavaScript files. It will also modify `index.html` so it references these new files.
 <%_ } _%>
 To ensure everything worked, run:
-<% if (buildTool == 'maven') { %>
-    java -jar target/*.war<% } %><% if (buildTool == 'gradle') { %>
+<% if (buildTool === 'maven') { %>
+    java -jar target/*.war<% } %><% if (buildTool === 'gradle') { %>
     java -jar build/libs/*.war<% } %>
 
 <% if(!skipClient) { %>Then navigate to [http://localhost:<%= serverPort %>](http://localhost:<%= serverPort %>) in your browser.
@@ -159,7 +271,7 @@ Refer to [Using JHipster in production][] for more details.
 
 To launch your application's tests, run:
 
-    <% if (buildTool == 'maven') { %>./mvnw clean test<% } else { %>./gradlew test<% } %>
+    <% if (buildTool === 'maven') { %>./mvnw clean test<% } else { %>./gradlew test<% } %>
 <% if(!skipClient) { %>
 ### Client tests
 
@@ -172,12 +284,12 @@ Unit tests are run by [Karma][] and written with [Jasmine][]. They're located in
 <%_ } _%>
 
 <% if (protractorTests) { %>UI end-to-end tests are powered by [Protractor][], which is built on top of WebDriverJS. They're located in [<%= CLIENT_TEST_SRC_DIR %>e2e](<%= CLIENT_TEST_SRC_DIR %>e2e)
-and can be run by starting Spring Boot in one terminal (`<% if (buildTool == 'maven') { %>./mvnw spring-boot:run<% } else { %>./gradlew bootRun<% } %>`) and running the tests (`<% if (clientFramework !== 'angular1') { %><%= clientPackageManager %> run e2e<% } else { %>gulp itest<% } %>`) in a second one.<% } %>
+and can be run by starting Spring Boot in one terminal (`<% if (buildTool === 'maven') { %>./mvnw spring-boot:run<% } else { %>./gradlew bootRun<% } %>`) and running the tests (`<% if (clientFramework !== 'angular1') { %><%= clientPackageManager %> run e2e<% } else { %>gulp itest<% } %>`) in a second one.<% } %>
 <% } %><% if (gatlingTests) { %>### Other tests
 
 Performance tests are run by [Gatling][] and written in Scala. They're located in [src/test/gatling](src/test/gatling) and can be run with:
 
-    <% if (buildTool == 'maven') { %>./mvnw gatling:execute<% } else { %>./gradlew gatlingRun<% } %>
+    <% if (buildTool === 'maven') { %>./mvnw gatling:execute<% } else { %>./gradlew gatlingRun<% } %>
 <% } %>
 For more information, refer to the [Running tests page][].
 
@@ -195,7 +307,7 @@ To stop it and remove the container, run:
 You can also fully dockerize your application and all the services that it depends on.
 To achieve this, first build a docker image of your app by running:
 
-    <% if (buildTool == 'maven') { %>./mvnw package -Pprod docker:build<% } %><% if (buildTool == 'gradle') { %>./gradlew bootRepackage -Pprod buildDocker<% } %>
+    <% if (buildTool === 'maven') { %>./mvnw package -Pprod dockerfile:build<% } %><% if (buildTool === 'gradle') { %>./gradlew bootRepackage -Pprod buildDocker<% } %>
 
 Then run:
 
@@ -209,13 +321,13 @@ To configure CI for your project, run the ci-cd sub-generator (`jhipster ci-cd`)
 
 [JHipster Homepage and latest documentation]: <%= DOCUMENTATION_URL %>
 [JHipster <%= jhipsterVersion %> archive]: <%= DOCUMENTATION_ARCHIVE_URL %>
-<% if (applicationType == 'gateway' || applicationType == 'microservice' || applicationType == 'uaa') { %>[Doing microservices with JHipster]: <%= DOCUMENTATION_ARCHIVE_URL %>/microservices-architecture/<% } %>
-<%_ if (applicationType == 'uaa') { _%>[Using UAA for Microservice Security]: <%= DOCUMENTATION_ARCHIVE_URL %>/using-uaa/<%_ } _%>
+<% if (applicationType === 'gateway' || applicationType === 'microservice' || applicationType === 'uaa') { %>[Doing microservices with JHipster]: <%= DOCUMENTATION_ARCHIVE_URL %>/microservices-architecture/<% } %>
+<%_ if (applicationType === 'uaa') { _%>[Using UAA for Microservice Security]: <%= DOCUMENTATION_ARCHIVE_URL %>/using-uaa/<%_ } _%>
 [Using JHipster in development]: <%= DOCUMENTATION_ARCHIVE_URL %>/development/
-<%_ if (serviceDiscoveryType == 'eureka') { _%>
+<%_ if (serviceDiscoveryType === 'eureka') { _%>
 [Service Discovery and Configuration with the JHipster-Registry]: <%= DOCUMENTATION_ARCHIVE_URL %>/microservices-architecture/#jhipster-registry
 <%_ } _%>
-<%_ if (serviceDiscoveryType == 'consul') { _%>
+<%_ if (serviceDiscoveryType === 'consul') { _%>
 [Service Discovery and Configuration with Consul]: <%= DOCUMENTATION_ARCHIVE_URL %>/microservices-architecture/#consul
 <%_ } _%>
 [Using Docker and Docker-Compose]: <%= DOCUMENTATION_ARCHIVE_URL %>/docker-compose
@@ -240,4 +352,9 @@ To configure CI for your project, run the ci-cd sub-generator (`jhipster ci-cd`)
 [Protractor]: https://angular.github.io/protractor/
 [Leaflet]: http://leafletjs.com/
 [DefinitelyTyped]: http://definitelytyped.org/
+<%_ } _%>
+<%_ if (enableSwaggerCodegen) { _%>
+[Swagger-Codegen]: https://github.com/swagger-api/swagger-codegen
+[Swagger-Editor]: http://editor.swagger.io
+[Doing API-First development]: <%= DOCUMENTATION_ARCHIVE_URL %>/doing-api-first-development/
 <%_ } _%>

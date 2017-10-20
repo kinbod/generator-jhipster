@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,8 +23,8 @@ import { Observable } from 'rxjs/Rx';
 import { JhiLanguageService } from 'ng-jhipster';
 import { MockLanguageService } from '../../../helpers/mock-language.service';
 <%_ } _%>
-import { <%=angular2AppName%>TestModule } from '../../../test.module';
-import { LoginModalService } from '../../../../../../main/webapp/app/shared';
+import { <%=angularXAppName%>TestModule } from '../../../test.module';
+import { LoginModalService, EMAIL_ALREADY_USED_TYPE, LOGIN_ALREADY_USED_TYPE } from '../../../../../../main/webapp/app/shared';
 import { Register } from '../../../../../../main/webapp/app/account/register/register.service';
 import { RegisterComponent } from '../../../../../../main/webapp/app/account/register/register.component';
 
@@ -36,7 +36,7 @@ describe('Component Tests', () => {
 
         beforeEach(async(() => {
             TestBed.configureTestingModule({
-                imports: [<%=angular2AppName%>TestModule],
+                imports: [<%=angularXAppName%>TestModule],
                 declarations: [RegisterComponent],
                 providers: [
                     Register,
@@ -63,7 +63,7 @@ describe('Component Tests', () => {
             comp.ngOnInit();
         });
 
-        it('should ensure the two passwords entered match', function () {
+        it('should ensure the two passwords entered match', () => {
             comp.registerAccount.password = 'password';
             comp.confirmPassword = 'non-matching';
 
@@ -87,7 +87,9 @@ describe('Component Tests', () => {
                     });
                     expect(comp.success).toEqual(true);
                     expect(comp.registerAccount.langKey).toEqual('<%= nativeLanguage %>');
-                    <% if(enableTranslation) { %>expect(mockTranslate.getCurrentSpy).toHaveBeenCalled();<% } %>
+                    <%_ if (enableTranslation) { _%>
+                    expect(mockTranslate.getCurrentSpy).toHaveBeenCalled();
+                    <%_ } _%>
                     expect(comp.errorUserExists).toBeNull();
                     expect(comp.errorEmailExists).toBeNull();
                     expect(comp.error).toBeNull();
@@ -100,7 +102,9 @@ describe('Component Tests', () => {
                 fakeAsync((service: Register) => {
                     spyOn(service, 'save').and.returnValue(Observable.throw({
                         status: 400,
-                        _body: 'login already in use'
+                        json() {
+                            return {type : LOGIN_ALREADY_USED_TYPE}
+                        }
                     }));
                     comp.registerAccount.password = comp.confirmPassword = 'password';
 
@@ -119,7 +123,9 @@ describe('Component Tests', () => {
                 fakeAsync((service: Register) => {
                     spyOn(service, 'save').and.returnValue(Observable.throw({
                         status: 400,
-                        _body: 'email address already in use'
+                        json() {
+                            return {type : EMAIL_ALREADY_USED_TYPE}
+                        }
                     }));
                     comp.registerAccount.password = comp.confirmPassword = 'password';
 

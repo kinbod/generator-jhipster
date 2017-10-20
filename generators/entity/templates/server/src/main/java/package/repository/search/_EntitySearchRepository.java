@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,12 +19,12 @@
 package <%=packageName%>.repository.search;
 
 import <%=packageName%>.domain.<%=entityClass%>;
-import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;<% if (databaseType == 'cassandra') { %>
+import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;<% if (databaseType === 'cassandra') { %>
 
 import java.util.UUID;<% } %>
 
 /**
  * Spring Data Elasticsearch repository for the <%=entityClass%> entity.
  */
-public interface <%=entityClass%>SearchRepository extends ElasticsearchRepository<<%=entityClass%>, <% if (databaseType=='sql' || databaseType=='mongodb') { %>Long<% } %><% if (databaseType == 'cassandra') { %>UUID<% } %>> {
+public interface <%=entityClass%>SearchRepository extends ElasticsearchRepository<<%=entityClass%>, <% if (databaseType === 'sql' || databaseType === 'mongodb') { %>Long<% } %><% if (databaseType === 'cassandra') { %>UUID<% } %>> {
 }

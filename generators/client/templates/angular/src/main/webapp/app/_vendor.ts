@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,10 +16,11 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -%>
-/* after changing this file run '<%= clientPackageManager %> run webpack:build:vendor' or '<%= clientPackageManager %> install' or '<%= clientPackageManager %> run webpack:build' */
+/* after changing this file run '<%= clientPackageManager %> run webpack:build' */
 /* tslint:disable */
 <%_ if (useSass) { _%>
 import '../content/scss/vendor.scss';
 <%_} else { _%>
 import '../content/css/vendor.css';
 <%_ } _%>
+// jhipster-needle-add-element-to-vendor - JHipster will add new menu items here

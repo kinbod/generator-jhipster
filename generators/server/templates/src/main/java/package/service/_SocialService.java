@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +22,8 @@ import <%=packageName%>.domain.Authority;
 import <%=packageName%>.domain.User;
 import <%=packageName%>.repository.AuthorityRepository;
 import <%=packageName%>.repository.UserRepository;
-<%_ if (searchEngine == 'elasticsearch') { _%>
+import <%=packageName%>.security.AuthoritiesConstants;
+<%_ if (searchEngine === 'elasticsearch') { _%>
 import <%=packageName%>.repository.search.UserSearchRepository;
 <%_ } _%>
 
@@ -56,21 +57,21 @@ public class SocialService {
     private final UserRepository userRepository;
 
     private final MailService mailService;
-    <%_ if (searchEngine == 'elasticsearch') { _%>
+    <%_ if (searchEngine === 'elasticsearch') { _%>
 
     private final UserSearchRepository userSearchRepository;
     <%_ } _%>
 
     public SocialService(UsersConnectionRepository usersConnectionRepository, AuthorityRepository authorityRepository,
             PasswordEncoder passwordEncoder, UserRepository userRepository,
-            MailService mailService<% if (searchEngine == 'elasticsearch') { %>, UserSearchRepository userSearchRepository<% } %>) {
+            MailService mailService<% if (searchEngine === 'elasticsearch') { %>, UserSearchRepository userSearchRepository<% } %>) {
 
         this.usersConnectionRepository = usersConnectionRepository;
         this.authorityRepository = authorityRepository;
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.mailService = mailService;
-        <%_ if (searchEngine == 'elasticsearch') { _%>
+        <%_ if (searchEngine === 'elasticsearch') { _%>
         this.userSearchRepository = userSearchRepository;
         <%_ } _%>
     }
@@ -112,7 +113,7 @@ public class SocialService {
             throw new IllegalArgumentException("Email cannot be null with an existing login");
         }
         if (!StringUtils.isBlank(email)) {
-            Optional<User> user = userRepository.findOneByEmail(email);
+            Optional<User> user = userRepository.findOneByEmailIgnoreCase(email);
             if (user.isPresent()) {
                 log.info("User already exist associate the connection to this account");
                 return user.get();
@@ -122,7 +123,7 @@ public class SocialService {
         String login = getLoginDependingOnProviderId(userProfile, providerId);
         String encryptedPassword = passwordEncoder.encode(RandomStringUtils.random(10));
         Set<Authority> authorities = new HashSet<>(1);
-        authorities.add(authorityRepository.findOne("ROLE_USER"));
+        authorities.add(authorityRepository.findOne(AuthoritiesConstants.USER));
 
         User newUser = new User();
         newUser.setLogin(login);
@@ -135,14 +136,14 @@ public class SocialService {
         newUser.setLangKey(langKey);
         newUser.setImageUrl(imageUrl);
 
-        <%_ if (searchEngine == 'elasticsearch') { _%>
+        <%_ if (searchEngine === 'elasticsearch') { _%>
         userSearchRepository.save(newUser);
         <%_ } _%>
         return userRepository.save(newUser);
     }
 
     /**
-     * @return login if provider manage a login like Twitter or Github otherwise email address.
+     * @return login if provider manage a login like Twitter or GitHub otherwise email address.
      *         Because provider like Google or Facebook didn't provide login or login like "12099388847393"
      */
     private String getLoginDependingOnProviderId(UserProfile userProfile, String providerId) {

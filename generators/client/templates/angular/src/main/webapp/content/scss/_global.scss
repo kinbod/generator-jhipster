@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +16,7 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -%>
+@import 'bootstrap-variables';
 
 /* ==============================================================
 Bootstrap tweaks
@@ -25,6 +26,15 @@ body, h1, h2, h3, h4 {
     font-weight: 300;
 }
 
+a {
+    color: #533f03;
+    font-weight: bold;
+}
+
+a:hover {
+    color: #533f03;
+    font-weight: bold;
+}
 
 /* ==========================================================================
 Browser Upgrade Prompt
@@ -95,7 +105,7 @@ a:hover {
   cursor: pointer;
 }
 
-.hand {
+.hand, [jhisortby] {
     cursor: pointer;
 }
 
@@ -262,5 +272,4 @@ Social button
     color: #fff;
 }
 <%_ } _%>
-
 /* jhipster-needle-scss-add-main JHipster will add new css style */

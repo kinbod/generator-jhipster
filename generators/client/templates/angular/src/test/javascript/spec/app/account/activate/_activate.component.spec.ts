@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,7 @@
 import { TestBed, async, tick, fakeAsync, inject } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { Observable } from 'rxjs/Rx';
-import { <%=angular2AppName%>TestModule } from '../../../test.module';
+import { <%=angularXAppName%>TestModule } from '../../../test.module';
 import { MockActivatedRoute } from '../../../helpers/mock-route.service';
 import { LoginModalService } from '../../../../../../main/webapp/app/shared';
 import { ActivateService } from '../../../../../../main/webapp/app/account/activate/activate.service';
@@ -33,7 +33,7 @@ describe('Component Tests', () => {
 
         beforeEach(async(() => {
             TestBed.configureTestingModule({
-                imports: [<%=angular2AppName%>TestModule],
+                imports: [<%=angularXAppName%>TestModule],
                 declarations: [ActivateComponent],
                 providers: [
                     ActivateService,
@@ -51,7 +51,7 @@ describe('Component Tests', () => {
         }));
 
         beforeEach(() => {
-            let fixture = TestBed.createComponent(ActivateComponent);
+            const fixture = TestBed.createComponent(ActivateComponent);
             comp = fixture.componentInstance;
         });
 

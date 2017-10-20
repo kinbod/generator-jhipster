@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,13 +29,16 @@ module.exports = {
 function endsWith(str, suffix) {
     return str.indexOf('/', str.length - suffix.length) !== -1;
 }
-<% if (buildTool == 'maven') { %>
+<% if (buildTool === 'maven') { %>
 var parseString = require('xml2js').parseString;
 // return the version number from `pom.xml` file
 function parseVersion() {
     var version = null;
     var pomXml = fs.readFileSync('pom.xml', 'utf8');
     parseString(pomXml, function (err, result) {
+        if (err) {
+            throw new Error('Failed to parse pom.xml: ' + err);
+        }
         if (result.project.version && result.project.version[0]) {
             version = result.project.version[0];
         } else if (result.project.parent && result.project.parent[0] && result.project.parent[0].version && result.project.parent[0].version[0]) {
@@ -47,7 +50,7 @@ function parseVersion() {
     }
     return version;
 }
-<% } else if (buildTool == 'gradle') { %>
+<% } else if (buildTool === 'gradle') { %>
 // Returns the second occurrence of the version number from `build.gradle` file
 function parseVersion() {
     var versionRegex = /^version\s*=\s*[',"]([^',"]*)[',"]/gm; // Match and group the version number

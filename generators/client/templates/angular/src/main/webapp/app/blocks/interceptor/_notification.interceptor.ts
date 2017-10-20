@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,14 +16,19 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -%>
-import { JhiHttpInterceptor } from 'ng-jhipster';
+import { JhiAlertService, JhiHttpInterceptor } from 'ng-jhipster';
 import { RequestOptionsArgs, Response } from '@angular/http';
+import { Injector } from '@angular/core';
 import { Observable } from 'rxjs/Observable';
 
 export class NotificationInterceptor extends JhiHttpInterceptor {
 
-    constructor() {
+    private alertService: JhiAlertService;
+
+    // tslint:disable-next-line: no-unused-variable
+    constructor(private injector: Injector) {
         super();
+        setTimeout(() => this.alertService = injector.get(JhiAlertService));
     }
 
     requestIntercept(options?: RequestOptionsArgs): RequestOptionsArgs {
@@ -31,22 +36,30 @@ export class NotificationInterceptor extends JhiHttpInterceptor {
     }
 
     responseIntercept(observable: Observable<Response>): Observable<Response> {
-        return <Observable<Response>> observable.catch((error) => {
-            const arr = Array.from(error.headers._headers);
+        return observable.map((response: Response) => {
             const headers = [];
-            let i;
-            for (i = 0; i < arr.length; i++) {
-                if (arr[i][0].endsWith('app-alert') || arr[i][0].endsWith('app-params')) {
-                    headers.push(arr[i][0]);
+            response.headers.forEach((value, name) => {
+                if (name.toLowerCase().endsWith('app-alert') || name.toLowerCase().endsWith('app-params')) {
+                    headers.push(name);
+                }
+            });
+            if (headers.length > 1) {
+                headers.sort();
+                const alertKey = response.headers.get(headers[ 0 ]);
+                if (typeof alertKey === 'string') {
+                    if (this.alertService) {
+                        <%_ if (enableTranslation) { _%>
+                        const alertParam = headers.length >= 2 ? response.headers.get(headers[ 1 ]) : null;
+                        this.alertService.success(alertKey, { param : alertParam }, null);
+                        <%_ } else { _%>
+                        this.alertService.success(alertKey, null, null);
+                        <%_ } _%>
+                    }
                 }
             }
-            headers.sort();
-            const alertKey = headers.length >= 1 ? error.headers.get(headers[0]) : null;
-            if (typeof alertKey === 'string') {
-                // TODO
-                // JhiAlertService.success(alertKey, { param: response.headers(headers[1])});
-            }
-            return Observable.throw(error);
+            return response;
+        }).catch((error) => {
+            return Observable.throw(error); // here, response is an error
         });
     }
 }

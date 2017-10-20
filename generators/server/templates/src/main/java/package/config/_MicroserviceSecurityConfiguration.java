@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
 -%>
 package <%=packageName%>.config;
 
-<%_ if(authenticationType == 'jwt') { _%>
+<%_ if(authenticationType === 'jwt') { _%>
 import <%=packageName%>.security.AuthoritiesConstants;
 import <%=packageName%>.security.jwt.JWTConfigurer;
 import <%=packageName%>.security.jwt.TokenProvider;
@@ -89,19 +89,16 @@ public class MicroserviceSecurityConfiguration extends WebSecurityConfigurerAdap
     }
 }
 <%_ } _%>
-<%_ if(authenticationType == 'uaa') { _%>
+<%_ if(authenticationType === 'uaa') { _%>
+import <%=packageName%>.config.oauth2.OAuth2JwtAccessTokenConverter;
+import <%=packageName%>.config.oauth2.OAuth2Properties;
+import <%=packageName%>.security.oauth2.OAuth2SignatureVerifierClient;
 import <%=packageName%>.security.AuthoritiesConstants;
 
-import io.github.jhipster.config.JHipsterProperties;
-
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.cloud.client.loadbalancer.RestTemplateCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -110,31 +107,42 @@ import org.springframework.security.oauth2.config.annotation.web.configuration.R
 import org.springframework.security.oauth2.provider.token.TokenStore;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+<%_ if (applicationType === 'gateway') { _%>
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.web.filter.CorsFilter;
+<%_ } _%>
 import org.springframework.web.client.RestTemplate;
-
-import java.util.Map;
 
 @Configuration
 @EnableResourceServer
 @EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true)
 public class MicroserviceSecurityConfiguration extends ResourceServerConfigurerAdapter {
+    private final OAuth2Properties oAuth2Properties;
 
-    private final JHipsterProperties jHipsterProperties;
+    <%_ if (applicationType === 'gateway') { _%>
+    private final CorsFilter corsFilter;
 
-    private final DiscoveryClient discoveryClient;
-
-    public MicroserviceSecurityConfiguration(JHipsterProperties jHipsterProperties,
-            DiscoveryClient discoveryClient) {
-
-        this.jHipsterProperties = jHipsterProperties;
-        this.discoveryClient = discoveryClient;
+    <%_ } _%>
+    public MicroserviceSecurityConfiguration(OAuth2Properties oAuth2Properties<%_ if (applicationType === 'gateway') { _%>, CorsFilter corsFilter<%_ } _%>) {
+        this.oAuth2Properties = oAuth2Properties;
+        <%_ if (applicationType === 'gateway') { _%>
+        this.corsFilter = corsFilter;
+        <%_ } _%>
     }
 
     @Override
     public void configure(HttpSecurity http) throws Exception {
         http
             .csrf()
+		<%_ if (applicationType === 'gateway') { _%>
+            .ignoringAntMatchers("/h2-console/**")
+            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+        .and()
+            .addFilterBefore(corsFilter, CsrfFilter.class)
+		<%_ } else { _%>
             .disable()
+		<%_ } _%>
             .headers()
             .frameOptions()
             .disable()
@@ -156,29 +164,151 @@ public class MicroserviceSecurityConfiguration extends ResourceServerConfigurerA
     }
 
     @Bean
-    public JwtAccessTokenConverter jwtAccessTokenConverter(
-            @Qualifier("loadBalancedRestTemplate") RestTemplate keyUriRestTemplate) {
-
-        JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
-        converter.setVerifierKey(getKeyFromAuthorizationServer(keyUriRestTemplate));
-        return converter;
+    public JwtAccessTokenConverter jwtAccessTokenConverter(OAuth2SignatureVerifierClient signatureVerifierClient) {
+        return new OAuth2JwtAccessTokenConverter(oAuth2Properties, signatureVerifierClient);
     }
 
     @Bean
+	@Qualifier("loadBalancedRestTemplate")
     public RestTemplate loadBalancedRestTemplate(RestTemplateCustomizer customizer) {
         RestTemplate restTemplate = new RestTemplate();
         customizer.customize(restTemplate);
         return restTemplate;
     }
 
-    private String getKeyFromAuthorizationServer(RestTemplate keyUriRestTemplate) {
-        // Load available UAA servers
-        discoveryClient.getServices();
-        HttpEntity<Void> request = new HttpEntity<Void>(new HttpHeaders());
-        return (String) keyUriRestTemplate
-            .exchange("http://<%= uaaBaseName %>/oauth/token_key", HttpMethod.GET, request, Map.class).getBody()
-            .get("value");
+    @Bean
+    @Qualifier("vanillaRestTemplate")
+    public RestTemplate vanillaRestTemplate() {
+        return new RestTemplate();
+    }
+}
+<%_ } _%>
+<%_ if(authenticationType === 'oauth2') { _%>
+import <%=packageName%>.security.AuthoritiesConstants;
+import <%=packageName%>.security.oauth2.SimpleAuthoritiesExtractor;
+import <%=packageName%>.security.oauth2.SimplePrincipalExtractor;
+<%_ if(applicationType === 'gateway') { _%>
+import org.springframework.beans.factory.annotation.Qualifier;
+<%_ } _%>
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.security.oauth2.resource.AuthoritiesExtractor;
+import org.springframework.boot.autoconfigure.security.oauth2.resource.PrincipalExtractor;
+import org.springframework.boot.autoconfigure.security.oauth2.resource.ResourceServerProperties;
+import org.springframework.boot.autoconfigure.security.oauth2.resource.UserInfoTokenServices;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
+import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
+import org.springframework.security.oauth2.provider.token.TokenStore;
+import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
+import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
+<%_ if(applicationType === 'gateway') { _%>
+import org.springframework.security.web.util.matcher.RequestHeaderRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
+<%_ } _%>
+import org.springframework.web.client.RestTemplate;
 
+import java.util.Map;
+import java.util.Optional;
+
+@Configuration
+@EnableResourceServer
+@EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true)
+public class MicroserviceSecurityConfiguration extends ResourceServerConfigurerAdapter {
+
+    private static final String OAUTH2_PRINCIPAL_ATTRIBUTE = "preferred_username";
+
+    private static final String OAUTH2_AUTHORITIES_ATTRIBUTE = "roles";
+
+    private ResourceServerProperties resourceServerProperties;
+
+    public MicroserviceSecurityConfiguration(ResourceServerProperties resourceServerProperties) {
+        this.resourceServerProperties = resourceServerProperties;
+    }
+
+    @Bean
+    @Primary
+    public UserInfoTokenServices userInfoTokenServices(PrincipalExtractor principalExtractor, AuthoritiesExtractor authoritiesExtractor) {
+        UserInfoTokenServices userInfoTokenServices = new UserInfoTokenServices(resourceServerProperties.getUserInfoUri(), resourceServerProperties.getClientId());
+        userInfoTokenServices.setPrincipalExtractor(principalExtractor);
+        userInfoTokenServices.setAuthoritiesExtractor(authoritiesExtractor);
+        return userInfoTokenServices;
+    }
+
+    @Bean
+    public PrincipalExtractor principalExtractor() {
+        return new SimplePrincipalExtractor(OAUTH2_PRINCIPAL_ATTRIBUTE);
+    }
+
+    @Bean
+    public AuthoritiesExtractor authoritiesExtractor() {
+        return new SimpleAuthoritiesExtractor(OAUTH2_AUTHORITIES_ATTRIBUTE);
+    }
+<%_ if(applicationType === 'gateway') { _%>
+
+    @Bean
+    @Qualifier("authorizationHeaderRequestMatcher")
+    public RequestMatcher authorizationHeaderRequestMatcher() {
+        return new RequestHeaderRequestMatcher("Authorization");
+    }
+<%_ } _%>
+
+    @Override
+    public void configure(HttpSecurity http) throws Exception {
+        http
+            .csrf()
+            .disable()
+            .headers()
+            .frameOptions()
+            .disable()
+        .and()
+            .sessionManagement()
+            .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+        .and()
+<%_ if(applicationType === 'gateway') { _%>
+            .requestMatcher(authorizationHeaderRequestMatcher())
+<%_ } _%>
+            .authorizeRequests()
+            .antMatchers("/api/profile-info").permitAll()
+            .antMatchers("/api/**").authenticated()
+            .antMatchers("/management/health").permitAll()
+            .antMatchers("/management/**").hasAuthority(AuthoritiesConstants.ADMIN);
+    }
+
+    @Bean
+    @ConditionalOnProperty("security.oauth2.resource.jwt.key-uri")
+    public TokenStore tokenStore(JwtAccessTokenConverter jwtAccessTokenConverter) {
+        return new JwtTokenStore(jwtAccessTokenConverter);
+    }
+
+    @Bean
+    @ConditionalOnProperty("security.oauth2.resource.jwt.key-uri")
+    public JwtAccessTokenConverter jwtAccessTokenConverter() {
+        JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
+        converter.setVerifierKey(getKeyFromAuthorizationServer());
+        return converter;
+    }
+
+    private String getKeyFromAuthorizationServer() {
+        return Optional.ofNullable(
+            new RestTemplate()
+                .exchange(
+                    resourceServerProperties.getJwt().getKeyUri(),
+                    HttpMethod.GET,
+                    new HttpEntity<Void>(new HttpHeaders()),
+                    Map.class
+                )
+                .getBody()
+                .get("public_key"))
+            .map(publicKey -> String.format("-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----", publicKey))
+            .orElse(resourceServerProperties.getJwt().getKeyValue());
     }
 }
 <%_ } _%>

@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,11 +19,11 @@
 import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { RouterModule } from '@angular/router';
 
-import { <%= angular2AppName %>SharedModule } from '../../shared';
-<%_ for (const rel of differentRelationships) {
-       if (rel.otherEntityNameCapitalized === 'User') { _%>
-import { <%= angular2AppName %>AdminModule } from '../../admin/admin.module';
-<%_ }} _%>
+import { <%= angularXAppName %>SharedModule } from '../../shared';
+<%_ Object.keys(differentRelationships).forEach(key => {
+       if (key === 'User') { _%>
+import { <%= angularXAppName %>AdminModule } from '../../admin/admin.module';
+<%_ }}); _%>
 import {
     <%= entityAngularName %>Service,
     <%= entityAngularName %>PopupService,
@@ -47,11 +47,11 @@ const ENTITY_STATES = [
 
 @NgModule({
     imports: [
-        <%= angular2AppName %>SharedModule,
-        <%_ for (const rel of differentRelationships) {
-              if (rel.otherEntityNameCapitalized === 'User') { _%>
-        <%= angular2AppName %>AdminModule,
-        <%_ }} _%>
+        <%= angularXAppName %>SharedModule,
+        <%_ Object.keys(differentRelationships).forEach(key => {
+              if (key === 'User') { _%>
+        <%= angularXAppName %>AdminModule,
+        <%_ }}); _%>
         RouterModule.forRoot(ENTITY_STATES, { useHash: true })
     ],
     declarations: [
@@ -78,4 +78,4 @@ const ENTITY_STATES = [
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
-export class <%= angular2AppName %><%= entityAngularName %>Module {}
+export class <%= angularXAppName %><%= entityAngularName %>Module {}

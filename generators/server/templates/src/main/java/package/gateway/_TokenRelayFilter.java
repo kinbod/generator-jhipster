@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,23 +17,40 @@
  limitations under the License.
 -%>
 package <%=packageName%>.gateway;
+<%_ if (authenticationType === 'oauth2') { _%>
+
+import <%=packageName%>.security.oauth2.AuthorizationHeaderUtil;
+<%_ } _%>
 
 import com.netflix.zuul.ZuulFilter;
 import com.netflix.zuul.context.RequestContext;
 import org.springframework.stereotype.Component;
+<%_ if (authenticationType === 'jwt' || authenticationType === 'uaa') { _%>
 
 import java.util.Set;
+<%_ } _%>
 
 @Component
 public class TokenRelayFilter extends ZuulFilter {
+<%_ if (authenticationType === 'oauth2') { _%>
+
+    public static final String AUTHORIZATION_HEADER = "Authorization";
+<%_ } _%>
+
     @Override
     public Object run() {
         RequestContext ctx = RequestContext.getCurrentContext();
-
+        <%_ if (authenticationType === 'jwt' || authenticationType === 'uaa') { _%>
         Set<String> headers = (Set<String>) ctx.get("ignoredHeaders");
-        // We need our JWT tokens relayed to resource servers
+        // JWT tokens should be relayed to the resource servers
         headers.remove("authorization");
+        <%_ } _%>
+        <%_ if (authenticationType === 'oauth2') { _%>
+        // Add specific authorization headers for OAuth2
+        ctx.addZuulRequestHeader(AUTHORIZATION_HEADER,
+            AuthorizationHeaderUtil.getAuthorizationHeader());
 
+        <%_ } _%>
         return null;
     }
 

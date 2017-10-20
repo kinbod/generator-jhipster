@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -59,7 +59,7 @@ public class JWTFilter extends GenericFilterBean {
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7, bearerToken.length());
         }
-        <%_ if (websocket == 'spring-websocket') { _%>
+        <%_ if (websocket === 'spring-websocket') { _%>
         String jwt = request.getParameter(JWTConfigurer.AUTHORIZATION_TOKEN);
         if (StringUtils.hasText(jwt)) {
             return jwt;

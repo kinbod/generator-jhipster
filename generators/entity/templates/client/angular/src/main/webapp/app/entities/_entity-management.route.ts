@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,7 @@
 <%_
 const i18nToLoad = [entityInstance];
 for (const idx in fields) {
-    if (fields[idx].fieldIsEnum == true) {
+    if (fields[idx].fieldIsEnum === true) {
         i18nToLoad.push(fields[idx].enumInstance);
     }
 }
@@ -31,7 +31,7 @@ if (fieldsContainInstant || fieldsContainZonedDateTime || fieldsContainLocalDate
 }
 _%>
 import { Injectable } from '@angular/core';
-import { Resolve, ActivatedRouteSnapshot, RouterStateSnapshot, Routes, CanActivate } from '@angular/router';
+import { Resolve, ActivatedRouteSnapshot, RouterStateSnapshot, Routes } from '@angular/router';
 
 import { UserRouteAccessService } from '../../shared';
 import { JhiPaginationUtil } from 'ng-jhipster';
@@ -47,9 +47,7 @@ import {
 } from './<%= entityFileName %>-delete-dialog.component';
 <%_ } _%>
 
-import { Principal } from '../../shared';
-
-<%_ if (pagination == 'pagination' || pagination == 'pager') { _%>
+<%_ if (pagination === 'pagination' || pagination === 'pager') { _%>
 @Injectable()
 export class <%= entityAngularName %>ResolvePagingParams implements Resolve<any> {
 
@@ -71,7 +69,7 @@ export const <%= entityInstance %>Route: Routes = [
     {
         path: '<%= entityUrl %>',
         component: <%= entityAngularName %>Component,
-        <%_ if (pagination == 'pagination' || pagination == 'pager'){ _%>
+        <%_ if (pagination === 'pagination' || pagination === 'pager'){ _%>
         resolve: {
             'pagingParams': <%= entityAngularName %>ResolvePagingParams
         },

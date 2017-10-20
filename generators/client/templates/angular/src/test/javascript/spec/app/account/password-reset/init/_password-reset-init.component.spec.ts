@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,20 +19,20 @@
 import { ComponentFixture, TestBed, inject } from '@angular/core/testing';
 import { Renderer, ElementRef } from '@angular/core';
 import { Observable } from 'rxjs/Rx';
-import { <%=angular2AppName%>TestModule } from '../../../../test.module';
+import { <%=angularXAppName%>TestModule } from '../../../../test.module';
 import { PasswordResetInitComponent } from '../../../../../../../main/webapp/app/account/password-reset/init/password-reset-init.component';
 import { PasswordResetInitService } from '../../../../../../../main/webapp/app/account/password-reset/init/password-reset-init.service';
-
+import { EMAIL_NOT_FOUND_TYPE } from '../../../../../../../main/webapp/app/shared';
 
 describe('Component Tests', () => {
 
-    describe('PasswordResetInitComponent', function () {
+    describe('PasswordResetInitComponent', () => {
         let fixture: ComponentFixture<PasswordResetInitComponent>;
         let comp: PasswordResetInitComponent;
 
         beforeEach(() => {
             fixture = TestBed.configureTestingModule({
-                imports: [<%=angular2AppName%>TestModule],
+                imports: [<%=angularXAppName%>TestModule],
                 declarations: [PasswordResetInitComponent],
                 providers: [
                     PasswordResetInitService,
@@ -53,7 +53,7 @@ describe('Component Tests', () => {
             comp.ngOnInit();
         });
 
-        it('should define its initial state', function () {
+        it('should define its initial state', () => {
             expect(comp.success).toBeUndefined();
             expect(comp.error).toBeUndefined();
             expect(comp.errorEmailNotExists).toBeUndefined();
@@ -62,8 +62,8 @@ describe('Component Tests', () => {
 
         it('sets focus after the view has been initialized',
             inject([ElementRef], (elementRef: ElementRef) => {
-                let element = fixture.nativeElement;
-                let node = {
+                const element = fixture.nativeElement;
+                const node = {
                     focus() {}
                 };
 
@@ -96,7 +96,9 @@ describe('Component Tests', () => {
             inject([PasswordResetInitService], (service: PasswordResetInitService) => {
                 spyOn(service, 'save').and.returnValue(Observable.throw({
                     status: 400,
-                    data: 'email address not registered'
+                    json() {
+                        return {type : EMAIL_NOT_FOUND_TYPE}
+                    }
                 }));
                 comp.resetAccount.email = 'user@domain.com';
 

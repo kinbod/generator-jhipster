@@ -1,7 +1,7 @@
 /**
  * Copyright 2013-2017 the original author or authors from the JHipster project.
  *
- * This file is part of the JHipster project, see https://jhipster.github.io/
+ * This file is part of the JHipster project, see http://www.jhipster.tech/
  * for more information.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,8 +26,13 @@ module.exports = {
     cleanupOldFiles,
     cleanupOldServerFiles
 };
+
 /**
  * Removes files that where generated in previous JHipster versions and therefore need to be removed
+ *
+ * @param {any} generator - reference to generator
+ * @param {string} javaDir - Java Dir
+ * @param {string} testDir - Test Dir
  */
 function cleanupOldFiles(generator, javaDir, testDir) {
     if (generator.isJhipsterVersionLessThan('3.2.0')) {
@@ -39,6 +44,10 @@ function cleanupOldFiles(generator, javaDir, testDir) {
 
 /**
  * Removes server files that where generated in previous JHipster versions and therefore need to be removed
+ *
+ * @param {any} generator - reference to generator
+ * @param {string} javaDir - Java Dir
+ * @param {string} testDir - Test Dir
  */
 function cleanupOldServerFiles(generator, javaDir, testDir) {
     if (generator.isJhipsterVersionLessThan('3.5.0')) {
@@ -47,9 +56,6 @@ function cleanupOldServerFiles(generator, javaDir, testDir) {
     }
     if (generator.isJhipsterVersionLessThan('3.6.0')) {
         generator.removeFile(`${javaDir}config/HerokuDatabaseConfiguration.java`);
-    }
-    if (generator.isJhipsterVersionLessThan('3.8.1')) {
-        generator.removeFile(`${javaDir}config/JacksonConfiguration.java`);
     }
     if (generator.isJhipsterVersionLessThan('3.10.0')) {
         generator.removeFile(`${javaDir}config/CloudMongoDbConfiguration.java`);
@@ -94,5 +100,9 @@ function cleanupOldServerFiles(generator, javaDir, testDir) {
     if (generator.isJhipsterVersionLessThan('4.3.0')) {
         generator.removeFile(`${javaDir}gateway/ratelimiting/RateLimitingRepository.java`);
         generator.removeFile(`${javaDir}config/cassandra/CustomZonedDateTimeCodec.java`);
+    }
+    if (generator.isJhipsterVersionLessThan('4.7.1')) {
+        generator.removeFile(`${javaDir}web/rest/errors/ErrorVM.java`);
+        generator.removeFile(`${javaDir}web/rest/errors/ParameterizedErrorVM.java`);
     }
 }

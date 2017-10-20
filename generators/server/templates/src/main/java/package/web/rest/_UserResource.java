@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,21 +20,27 @@ package <%=packageName%>.web.rest;
 
 import <%=packageName%>.config.Constants;
 import com.codahale.metrics.annotation.Timed;
-import <%=packageName%>.domain.User;
-import <%=packageName%>.repository.UserRepository;<% if (searchEngine == 'elasticsearch') { %>
+<%_ if (authenticationType !== 'oauth2') { _%>
+import <%=packageName%>.domain.User;<% } %>
+import <%=packageName%>.repository.UserRepository;<% if (searchEngine === 'elasticsearch') { %>
 import <%=packageName%>.repository.search.UserSearchRepository;<% } %>
 import <%=packageName%>.security.AuthoritiesConstants;
-import <%=packageName%>.service.MailService;
+<%_ if (authenticationType !== 'oauth2') { _%>
+import <%=packageName%>.service.MailService;<% } %>
 import <%=packageName%>.service.UserService;
 import <%=packageName%>.service.dto.UserDTO;
+<%_ if (authenticationType !== 'oauth2') { _%>
+import <%=packageName%>.web.rest.errors.BadRequestAlertException;
+import <%=packageName%>.web.rest.errors.EmailAlreadyUsedException;
+import <%=packageName%>.web.rest.errors.LoginAlreadyUsedException;
 import <%=packageName%>.web.rest.vm.ManagedUserVM;
-import <%=packageName%>.web.rest.util.HeaderUtil;<% if (databaseType == 'sql' || databaseType == 'mongodb') { %>
+import <%=packageName%>.web.rest.util.HeaderUtil;<% } %><% if (databaseType === 'sql' || databaseType === 'mongodb') { %>
 import <%=packageName%>.web.rest.util.PaginationUtil;<% } %>
 import io.github.jhipster.web.util.ResponseUtil;
 import io.swagger.annotations.ApiParam;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;<% if (databaseType == 'sql' || databaseType == 'mongodb') { %>
+import org.slf4j.LoggerFactory;<% if (databaseType === 'sql' || databaseType === 'mongodb') { %>
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;<% } %>
@@ -43,24 +49,27 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 
+<%_ if (authenticationType !== 'oauth2') { _%>
 import javax.validation.Valid;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.*;<% if (searchEngine == 'elasticsearch') { %>
+<%_ } _%>
+import java.util.*;
+<%_ if (searchEngine === 'elasticsearch') { _%>
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static org.elasticsearch.index.query.QueryBuilders.*;<% } %>
+import static org.elasticsearch.index.query.QueryBuilders.*;
+<%_ } _%>
 
 /**
  * REST controller for managing users.
- *
- * <p>This class accesses the User entity, and needs to fetch its collection of authorities.</p>
+ * <p>
+ * This class accesses the User entity, and needs to fetch its collection of authorities.
  * <p>
  * For a normal use-case, it would be better to have an eager relationship between User and Authority,
  * and send everything to the client side: there would be no View Model and DTO, a lot less code, and an outer-join
  * which would be good for performance.
- * </p>
  * <p>
  * We use a View Model and a DTO for 3 reasons:
  * <ul>
@@ -74,7 +83,8 @@ import static org.elasticsearch.index.query.QueryBuilders.*;<% } %>
  * (which will get lots of data from the database, for each HTTP call).</li>
  * <li> As this manages users, for security reasons, we'd rather have a DTO layer.</li>
  * </ul>
- * <p>Another option would be to have a specific JPA entity graph to handle this case.</p>
+ * <p>
+ * Another option would be to have a specific JPA entity graph to handle this case.
  */
 @RestController
 @RequestMapping("/api")
@@ -85,23 +95,26 @@ public class UserResource {
     private static final String ENTITY_NAME = "userManagement";
 
     private final UserRepository userRepository;
-
+<%_ if (authenticationType !== 'oauth2') { _%>
     private final MailService mailService;
-
-    private final UserService userService;<% if (searchEngine == 'elasticsearch') { %>
+<%_ } _%>
+    private final UserService userService;<% if (searchEngine === 'elasticsearch') { %>
 
     private final UserSearchRepository userSearchRepository;<% } %>
 
-    public UserResource(UserRepository userRepository, MailService mailService,
-            UserService userService<% if (searchEngine == 'elasticsearch') { %>, UserSearchRepository userSearchRepository<% } %>) {
+    public UserResource(UserRepository userRepository, <%_ if (authenticationType !== 'oauth2') { _%>MailService mailService,<%_ } _%>
+            UserService userService<% if (searchEngine === 'elasticsearch') { %>, UserSearchRepository userSearchRepository<% } %>) {
 
         this.userRepository = userRepository;
+        <%_ if (authenticationType !== 'oauth2') { _%>
         this.mailService = mailService;
+        <%_ } _%>
         this.userService = userService;
-        <%_ if (searchEngine == 'elasticsearch') { _%>
+        <%_ if (searchEngine === 'elasticsearch') { _%>
         this.userSearchRepository = userSearchRepository;
         <%_ } _%>
     }
+<%_ if (authenticationType !== 'oauth2') { _%>
 
     /**
      * POST  /users  : Creates a new user.
@@ -109,11 +122,11 @@ public class UserResource {
      * Creates a new user if the login and email are not already used, and sends an
      * mail with an activation link.
      * The user needs to be activated on creation.
-     * </p>
      *
      * @param managedUserVM the user to create
      * @return the ResponseEntity with status 201 (Created) and with body the new user, or with status 400 (Bad Request) if the login or email is already in use
      * @throws URISyntaxException if the Location URI syntax is incorrect
+     * @throws BadRequestAlertException 400 (Bad Request) if the login or email is already in use
      */
     @PostMapping("/users")
     @Timed
@@ -122,18 +135,12 @@ public class UserResource {
         log.debug("REST request to save User : {}", managedUserVM);
 
         if (managedUserVM.getId() != null) {
-            return ResponseEntity.badRequest()
-                .headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new user cannot already have an ID"))
-                .body(null);
+            throw new BadRequestAlertException("A new user cannot already have an ID", ENTITY_NAME, "idexists");
         // Lowercase the user login before comparing with database
         } else if (userRepository.findOneByLogin(managedUserVM.getLogin().toLowerCase()).isPresent()) {
-            return ResponseEntity.badRequest()
-                .headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "userexists", "Login already in use"))
-                .body(null);
-        } else if (userRepository.findOneByEmail(managedUserVM.getEmail()).isPresent()) {
-            return ResponseEntity.badRequest()
-                .headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "emailexists", "Email already in use"))
-                .body(null);
+            throw new LoginAlreadyUsedException();
+        } else if (userRepository.findOneByEmailIgnoreCase(managedUserVM.getEmail()).isPresent()) {
+            throw new EmailAlreadyUsedException();
         } else {
             User newUser = userService.createUser(managedUserVM);
             mailService.sendCreationEmail(newUser);
@@ -147,37 +154,37 @@ public class UserResource {
      * PUT  /users : Updates an existing User.
      *
      * @param managedUserVM the user to update
-     * @return the ResponseEntity with status 200 (OK) and with body the updated user,
-     * or with status 400 (Bad Request) if the login or email is already in use,
-     * or with status 500 (Internal Server Error) if the user couldn't be updated
+     * @return the ResponseEntity with status 200 (OK) and with body the updated user
+     * @throws EmailAlreadyUsedException 400 (Bad Request) if the email is already in use
+     * @throws LoginAlreadyUsedException 400 (Bad Request) if the login is already in use
      */
     @PutMapping("/users")
     @Timed
     @Secured(AuthoritiesConstants.ADMIN)
     public ResponseEntity<UserDTO> updateUser(@Valid @RequestBody ManagedUserVM managedUserVM) {
         log.debug("REST request to update User : {}", managedUserVM);
-        Optional<User> existingUser = userRepository.findOneByEmail(managedUserVM.getEmail());
+        Optional<User> existingUser = userRepository.findOneByEmailIgnoreCase(managedUserVM.getEmail());
         if (existingUser.isPresent() && (!existingUser.get().getId().equals(managedUserVM.getId()))) {
-            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "emailexists", "Email already in use")).body(null);
+            throw new EmailAlreadyUsedException();
         }
         existingUser = userRepository.findOneByLogin(managedUserVM.getLogin().toLowerCase());
         if (existingUser.isPresent() && (!existingUser.get().getId().equals(managedUserVM.getId()))) {
-            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "userexists", "Login already in use")).body(null);
+            throw new LoginAlreadyUsedException();
         }
         Optional<UserDTO> updatedUser = userService.updateUser(managedUserVM);
 
         return ResponseUtil.wrapOrNotFound(updatedUser,
             HeaderUtil.createAlert(<% if(enableTranslation) { %>"userManagement.updated"<% } else { %>"A user is updated with identifier " + managedUserVM.getLogin()<% } %>, managedUserVM.getLogin()));
     }
-
+<% } %>
     /**
      * GET  /users : get all users.
-     *<% if (databaseType == 'sql' || databaseType == 'mongodb') { %>
+     *<% if (databaseType === 'sql' || databaseType === 'mongodb') { %>
      * @param pageable the pagination information<% } %>
      * @return the ResponseEntity with status 200 (OK) and with body all users
      */
     @GetMapping("/users")
-    @Timed<% if (databaseType == 'sql' || databaseType == 'mongodb') { %>
+    @Timed<% if (databaseType === 'sql' || databaseType === 'mongodb') { %>
     public ResponseEntity<List<UserDTO>> getAllUsers(@ApiParam Pageable pageable) {
         final Page<UserDTO> page = userService.getAllManagedUsers(pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/users");
@@ -212,6 +219,7 @@ public class UserResource {
             userService.getUserWithAuthoritiesByLogin(login)
                 .map(UserDTO::new));
     }
+<%_ if (authenticationType !== 'oauth2') { _%>
 
     /**
      * DELETE /users/:login : delete the "login" User.
@@ -226,7 +234,7 @@ public class UserResource {
         log.debug("REST request to delete User: {}", login);
         userService.deleteUser(login);
         return ResponseEntity.ok().headers(HeaderUtil.createAlert(<% if(enableTranslation) {%> "userManagement.deleted"<% } else { %> "A user is deleted with identifier " + login<% } %>, login)).build();
-    }<% if (searchEngine == 'elasticsearch') { %>
+    }<%_ } _%><% if (searchEngine === 'elasticsearch') { %>
 
     /**
      * SEARCH  /_search/users/:query : search for the User corresponding

@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +23,7 @@ import <%=packageName%>.repository.PersistenceAuditEventRepository;
 import org.springframework.boot.actuate.audit.AuditEvent;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;<% if (databaseType == 'sql') { %>
+import org.springframework.stereotype.Service;<% if (databaseType === 'sql') { %>
 import org.springframework.transaction.annotation.Transactional;<% } %>
 
 import java.time.Instant;
@@ -33,9 +33,8 @@ import java.util.Optional;
  * Service for managing audit events.
  * <p>
  * This is the default implementation to support SpringBoot Actuator AuditEventRepository
- * </p>
  */
-@Service<% if (databaseType == 'sql') { %>
+@Service<% if (databaseType === 'sql') { %>
 @Transactional<% } %>
 public class AuditEventService {
 
@@ -61,7 +60,7 @@ public class AuditEventService {
             .map(auditEventConverter::convertToAuditEvent);
     }
 
-    public Optional<AuditEvent> find(<% if (databaseType == 'sql') { %>Long <% } %><% if (databaseType == 'mongodb') { %>String <% } %>id) {
+    public Optional<AuditEvent> find(<% if (databaseType === 'sql') { %>Long <% } %><% if (databaseType === 'mongodb') { %>String <% } %>id) {
         return Optional.ofNullable(persistenceAuditEventRepository.findOne(id)).map
             (auditEventConverter::convertToAuditEvent);
     }

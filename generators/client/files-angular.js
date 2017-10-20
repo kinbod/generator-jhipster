@@ -1,7 +1,7 @@
 /**
  * Copyright 2013-2017 the original author or authors from the JHipster project.
  *
- * This file is part of the JHipster project, see https://jhipster.github.io/
+ * This file is part of the JHipster project, see http://www.jhipster.tech/
  * for more information.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,10 +38,11 @@ const files = {
                 '_tsconfig-aot.json',
                 '_tslint.json',
                 '_.angular-cli.json',
+                'webpack/_utils.js',
                 'webpack/_webpack.common.js',
                 'webpack/_webpack.dev.js',
                 'webpack/_webpack.prod.js',
-                'webpack/_webpack.vendor.js',
+                'webpack/_webpack.test.js',
                 { file: 'webpack/logo-jhipster.png', method: 'copy' }
             ]
         }
@@ -57,6 +58,13 @@ const files = {
                 'content/css/_vendor.css',
                 'content/css/_documentation.css'
             ]
+        },
+        {
+            condition: generator => !generator.useSass && generator.enableI18nRTL,
+            path: MAIN_SRC_DIR,
+            templates: [
+                'content/css/_rtl.css',
+            ]
         }
     ],
     sass: [
@@ -64,8 +72,16 @@ const files = {
             condition: generator => generator.useSass,
             path: MAIN_SRC_DIR,
             templates: [
+                'content/scss/__bootstrap-variables.scss',
                 'content/scss/_global.scss',
                 'content/scss/_vendor.scss'
+            ]
+        },
+        {
+            condition: generator => generator.useSass && generator.enableI18nRTL,
+            path: MAIN_SRC_DIR,
+            templates: [
+                'content/scss/_rtl.scss',
             ]
         },
         {
@@ -90,7 +106,7 @@ const files = {
             path: MAIN_SRC_DIR,
             templates: [
                 'swagger-ui/_index.html',
-                { file: 'swagger-ui/images/_throbber.gif', method: 'copy' }
+                { file: 'swagger-ui/dist/images/_throbber.gif', method: 'copy' }
             ]
         }
     ],
@@ -112,6 +128,7 @@ const files = {
             path: ANGULAR_DIR,
             templates: [
                 '_app.main.ts',
+                '_app.main-aot.ts',
                 '_app.route.ts',
                 '_app.module.ts',
                 '_app.constants.ts',
@@ -126,7 +143,7 @@ const files = {
             ]
         },
         {
-            condition: generator => generator.authenticationType === 'oauth2' || generator.authenticationType === 'jwt' || generator.authenticationType === 'uaa',
+            condition: generator => generator.authenticationType === 'jwt',
             path: ANGULAR_DIR,
             templates: [
                 'blocks/interceptor/_auth.interceptor.ts'
@@ -198,6 +215,7 @@ const files = {
     angularAccountModule: [
         {
             path: ANGULAR_DIR,
+            condition: generator => generator.authenticationType !== 'oauth2',
             templates: [
                 'account/_index.ts',
                 { file: 'account/_account.route.ts', method: 'processJs' },
@@ -259,14 +277,14 @@ const files = {
             ]
         },
         {
-            condition: generator => generator.useSass,
+            condition: generator => generator.useSass && generator.authenticationType !== 'oauth2',
             path: ANGULAR_DIR,
             templates: [
                 'account/password/_password-strength-bar.scss'
             ]
         },
         {
-            condition: generator => !generator.useSass,
+            condition: generator => !generator.useSass && generator.authenticationType !== 'oauth2',
             path: ANGULAR_DIR,
             templates: [
                 'account/password/_password-strength-bar.css'
@@ -366,19 +384,28 @@ const files = {
                 'shared/_shared.module.ts',
                 'shared/_shared-libs.module.ts',
                 'shared/_shared-common.module.ts',
+                'shared/constants/_error.constants.ts',
                 'shared/constants/_pagination.constants.ts',
                 // models
                 'shared/model/_response-wrapper.model.ts',
                 'shared/model/_request-util.ts',
+                'shared/model/_base-entity.ts',
                 'shared/user/_account.model.ts',
                 // login
-                'shared/login/_login.component.ts',
-                { file: 'shared/login/_login.component.html', method: 'processHtml' },
                 'shared/login/_login.service.ts',
-                'shared/login/_login-modal.service.ts',
                 // alert service code
                 'shared/alert/_alert.component.ts',
                 'shared/alert/_alert-error.component.ts'
+            ]
+        },
+        {
+            path: ANGULAR_DIR,
+            condition: generator => generator.authenticationType !== 'oauth2',
+            templates: [
+                // login
+                'shared/login/_login.component.ts',
+                { file: 'shared/login/_login.component.html', method: 'processHtml' },
+                'shared/login/_login-modal.service.ts'
             ]
         },
         {
@@ -391,7 +418,7 @@ const files = {
             ]
         },
         {
-            condition: generator => !generator.skipUserManagement,
+            condition: generator => !generator.skipUserManagement || generator.authenticationType === 'oauth2',
             path: ANGULAR_DIR,
             templates: [
                 'shared/user/_user.model.ts',
@@ -412,13 +439,6 @@ const files = {
             ]
         },
         {
-            condition: generator => generator.authenticationType === 'oauth2',
-            path: ANGULAR_DIR,
-            templates: [
-                'shared/auth/_auth-oauth2.service.ts'
-            ]
-        },
-        {
             condition: generator => generator.authenticationType === 'jwt' || generator.authenticationType === 'uaa',
             path: ANGULAR_DIR,
             templates: [
@@ -426,7 +446,7 @@ const files = {
             ]
         },
         {
-            condition: generator => generator.authenticationType === 'session',
+            condition: generator => generator.authenticationType === 'session' || generator.authenticationType === 'oauth2',
             path: ANGULAR_DIR,
             templates: [
                 'shared/auth/_auth-session.service.ts'
@@ -440,18 +460,24 @@ const files = {
                 '_karma.conf.js',
                 'spec/_entry.ts',
                 'spec/_test.module.ts',
+                'spec/app/admin/health/_health.component.spec.ts',
+                'spec/helpers/_spyobject.ts',
+                'spec/helpers/_mock-account.service.ts',
+                'spec/helpers/_mock-principal.service.ts',
+                'spec/helpers/_mock-route.service.ts'
+            ]
+        },
+        {
+            condition: generator => generator.authenticationType !== 'oauth2',
+            path: TEST_SRC_DIR,
+            templates: [
                 'spec/app/account/activate/_activate.component.spec.ts',
                 'spec/app/account/password/_password.component.spec.ts',
                 'spec/app/account/password/_password-strength-bar.component.spec.ts',
                 'spec/app/account/password-reset/init/_password-reset-init.component.spec.ts',
                 'spec/app/account/password-reset/finish/_password-reset-finish.component.spec.ts',
                 'spec/app/account/register/_register.component.spec.ts',
-                'spec/app/account/settings/_settings.component.spec.ts',
-                'spec/app/admin/health/_health.component.spec.ts',
-                'spec/helpers/_spyobject.ts',
-                'spec/helpers/_mock-account.service.ts',
-                'spec/helpers/_mock-principal.service.ts',
-                'spec/helpers/_mock-route.service.ts'
+                'spec/app/account/settings/_settings.component.spec.ts'
             ]
         },
         {
@@ -488,6 +514,7 @@ const files = {
             templates: [
                 'e2e/account/_account.spec.ts',
                 'e2e/admin/_administration.spec.ts',
+                'e2e/page-objects/_jhi-page-objects.ts',
                 '_protractor.conf.js'
             ]
         }

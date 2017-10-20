@@ -1,7 +1,7 @@
 /**
  * Copyright 2013-2017 the original author or authors from the JHipster project.
  *
- * This file is part of the JHipster project, see https://jhipster.github.io/
+ * This file is part of the JHipster project, see http://www.jhipster.tech/
  * for more information.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,21 +16,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-const util = require('util');
-const generator = require('yeoman-generator');
 const _ = require('lodash');
 const chalk = require('chalk');
 const BaseGenerator = require('../generator-base');
 
 const constants = require('../generator-constants');
 
-const ModulesGenerator = generator.extend({});
-
-util.inherits(ModulesGenerator, BaseGenerator);
-
-module.exports = ModulesGenerator.extend({
-    constructor: function (...args) { // eslint-disable-line object-shorthand
-        generator.apply(this, args);
+module.exports = class extends BaseGenerator {
+    constructor(args, opts) {
+        super(args, opts);
 
         const jhipsterVar = this.options.jhipsterVar;
         const jhipsterFunc = this.options.jhipsterFunc;
@@ -39,6 +33,10 @@ module.exports = ModulesGenerator.extend({
         }
 
         this.log(`Composing JHipster configuration with module ${chalk.red(jhipsterVar.moduleName)}`);
+
+        this.warning(`${chalk.red('DEPRECATED!')} The JHipster module sub-generator is deprecated.`);
+        this.warning(`Please import the ${chalk.yellow('generator-base.js')} using commonJS require or ES2015 import.`);
+        this.warning(`See ${chalk.yellow('http://www.jhipster.tech/modules/creating-a-module')} for more details.\n`);
 
         const baseName = this.config.get('baseName');
         const packageName = this.config.get('packageName');
@@ -70,15 +68,18 @@ module.exports = ModulesGenerator.extend({
         jhipsterVar.languages = this.config.get('languages');
         jhipsterVar.enableSocialSignIn = this.config.get('enableSocialSignIn');
         jhipsterVar.testFrameworks = this.config.get('testFrameworks');
+        jhipsterVar.enableSwaggerCodegen = this.config.get('enableSwaggerCodegen');
         jhipsterVar.jhiPrefix = this.config.get('jhiPrefix');
         jhipsterVar.jhiPrefixCapitalized = _.upperFirst(jhipsterVar.jhiPrefix);
         jhipsterVar.jhipsterVersion = this.config.get('jhipsterVersion');
         jhipsterVar.serverPort = this.config.get('serverPort');
-        jhipsterVar.clientFramework = this.config.get('clientFramework');
+        // For backward compatibility
+        const clientFramework = this.config.get('clientFramework');
+        jhipsterVar.clientFramework = clientFramework === 'angularX' ? 'angular2' : clientFramework;
         jhipsterVar.clientPackageManager = this.config.get('clientPackageManager');
 
         jhipsterVar.angularAppName = this.getAngularAppName();
-        jhipsterVar.angular2AppName = this.getAngular2AppName();
+        jhipsterVar.angular2AppName = this.getAngularXAppName();
         jhipsterVar.mainClassName = this.getMainClassName();
         jhipsterVar.javaDir = `${constants.SERVER_MAIN_SRC_DIR + packageFolder}/`;
         jhipsterVar.resourceDir = constants.SERVER_MAIN_RES_DIR;
@@ -106,6 +107,9 @@ module.exports = ModulesGenerator.extend({
         jhipsterFunc.addNpmScript = this.addNpmScript;
         jhipsterFunc.addMainCSSStyle = this.addMainCSSStyle;
         jhipsterFunc.addMainSCSSStyle = this.addMainSCSSStyle;
+        jhipsterFunc.addVendorSCSSStyle = this.addVendorSCSSStyle;
+        jhipsterFunc.copyExternalAssetsInWebpack = this.copyExternalAssetsInWebpack;
+        jhipsterFunc.addExternalResourcesToRoot = this.addExternalResourcesToRoot;
         jhipsterFunc.addAngularJsModule = this.addAngularJsModule;
         jhipsterFunc.addAngularJsInterceptor = this.addAngularJsInterceptor;
         jhipsterFunc.addElementToMenu = this.addElementToMenu;
@@ -153,7 +157,7 @@ module.exports = ModulesGenerator.extend({
         jhipsterFunc.printJHipsterLogo = this.printJHipsterLogo;
         jhipsterFunc.checkForNewVersion = this.checkForNewVersion;
         jhipsterFunc.getAngularAppName = this.getAngularAppName;
-        jhipsterFunc.getAngular2AppName = this.getAngular2AppName;
+        jhipsterFunc.getAngular2AppName = this.angularXAppName;
         jhipsterFunc.getMainClassName = this.getMainClassName;
         jhipsterFunc.askModuleName = this.askModuleName;
         jhipsterFunc.aski18n = this.aski18n;
@@ -162,7 +166,7 @@ module.exports = ModulesGenerator.extend({
         jhipsterFunc.buildApplication = this.buildApplication;
         jhipsterFunc.writeFilesToDisk = this.writeFilesToDisk;
         jhipsterFunc.getEntityJson = this.getEntityJson;
-    },
+    }
 
     initializing() {
         const insight = this.insight();
@@ -170,4 +174,4 @@ module.exports = ModulesGenerator.extend({
 
         this.log('Reading the JHipster project configuration for your module');
     }
-});
+};

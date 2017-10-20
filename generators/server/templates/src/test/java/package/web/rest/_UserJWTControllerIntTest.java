@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -92,9 +92,9 @@ public class UserJWTControllerIntTest <% if (databaseType === 'cassandra') { %>e
         user.setActivated(true);
         user.setPassword(passwordEncoder.encode("test"));
 
-        <%_ if (databaseType == 'sql') { _%>
+        <%_ if (databaseType === 'sql') { _%>
         userRepository.saveAndFlush(user);
-        <%_ } else if (databaseType == 'mongodb' || databaseType == 'cassandra') { _%>
+        <%_ } else if (databaseType === 'mongodb' || databaseType === 'cassandra') { _%>
         userRepository.save(user);
         <%_ } _%>
 
@@ -123,9 +123,9 @@ public class UserJWTControllerIntTest <% if (databaseType === 'cassandra') { %>e
         user.setActivated(true);
         user.setPassword(passwordEncoder.encode("test"));
 
-        <%_ if (databaseType == 'sql') { _%>
+        <%_ if (databaseType === 'sql') { _%>
         userRepository.saveAndFlush(user);
-        <%_ } else if (databaseType == 'mongodb' || databaseType == 'cassandra') { _%>
+        <%_ } else if (databaseType === 'mongodb' || databaseType === 'cassandra') { _%>
         userRepository.save(user);
         <%_ } _%>
 

@@ -1,7 +1,7 @@
 /**
  * Copyright 2013-2017 the original author or authors from the JHipster project.
  *
- * This file is part of the JHipster project, see https://jhipster.github.io/
+ * This file is part of the JHipster project, see http://www.jhipster.tech/
  * for more information.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,25 +16,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-const generator = require('yeoman-generator');
 const chalk = require('chalk');
 const shelljs = require('shelljs');
-const crypto = require('crypto');
-const _ = require('lodash');
-const util = require('util');
 const prompts = require('./prompts');
 const writeFiles = require('./files').writeFiles;
 const BaseGenerator = require('../generator-base');
-
-const KubernetesGenerator = generator.extend({});
-util.inherits(KubernetesGenerator, BaseGenerator);
+const docker = require('../docker-base');
 
 /* Constants used throughout */
 const constants = require('../generator-constants');
 
-module.exports = KubernetesGenerator.extend({
-    constructor: function (...args) { // eslint-disable-line object-shorthand
-        generator.apply(this, args);
+module.exports = class extends BaseGenerator {
+    constructor(args, opts) {
+        super(args, opts);
 
         // This adds support for a `--skip-checks` flag
         this.option('skip-checks', {
@@ -44,77 +38,67 @@ module.exports = KubernetesGenerator.extend({
         });
 
         this.skipChecks = this.options['skip-checks'];
-    },
+    }
 
-    initializing: {
-        sayHello() {
-            this.log(chalk.white(`${chalk.bold('⎈')} [BETA] Welcome to the JHipster Kubernetes Generator ${chalk.bold('⎈')}`));
-            this.log(chalk.white(`Files will be generated in folder: ${chalk.yellow(this.destinationRoot())}`));
-        },
+    get initializing() {
+        return {
+            sayHello() {
+                this.log(chalk.white(`${chalk.bold('⎈')} Welcome to the JHipster Kubernetes Generator ${chalk.bold('⎈')}`));
+                this.log(chalk.white(`Files will be generated in folder: ${chalk.yellow(this.destinationRoot())}`));
+            },
 
-        checkDocker() {
-            if (this.skipChecks) return;
-            const done = this.async();
+            checkDocker: docker.checkDocker,
 
-            shelljs.exec('docker -v', { silent: true }, (code, stdout, stderr) => {
-                if (stderr) {
-                    this.log(`${chalk.yellow.bold('WARNING!')} Docker version 1.10.0 or later is not installed on your computer.\n` +
-                        '         Read http://docs.docker.com/engine/installation/#installation\n');
-                } else {
-                    const dockerVersion = stdout.split(' ')[2].replace(/,/g, '');
-                    const dockerVersionMajor = dockerVersion.split('.')[0];
-                    const dockerVersionMinor = dockerVersion.split('.')[1];
-                    if (dockerVersionMajor < 1 || (dockerVersionMajor === 1 && dockerVersionMinor < 10)) {
-                        this.log(`${chalk.yellow.bold('WARNING!')} Docker version 1.10.0 or later is not installed on your computer.\n` +
-                            `         Docker version found: ${dockerVersion}\n` +
-                            '         Read http://docs.docker.com/engine/installation/#installation\n');
+            checkKubernetes() {
+                if (this.skipChecks) return;
+                const done = this.async();
+
+                shelljs.exec('kubectl version', { silent: true }, (code, stdout, stderr) => {
+                    if (stderr) {
+                        this.log(`${chalk.yellow.bold('WARNING!')} kubectl 1.2 or later is not installed on your computer.\n` +
+                          'Make sure you have Kubernetes installed. Read http://kubernetes.io/docs/getting-started-guides/binary_release/\n');
                     }
+                    done();
+                });
+            },
+
+            loadConfig() {
+                this.defaultAppsFolders = this.config.get('appsFolders');
+                this.directoryPath = this.config.get('directoryPath');
+                this.clusteredDbApps = this.config.get('clusteredDbApps');
+                this.serviceDiscoveryType = this.config.get('serviceDiscoveryType');
+                this.adminPassword = this.config.get('adminPassword');
+                this.jwtSecretKey = this.config.get('jwtSecretKey');
+                this.dockerRepositoryName = this.config.get('dockerRepositoryName');
+                this.dockerPushCommand = this.config.get('dockerPushCommand');
+                this.kubernetesNamespace = this.config.get('kubernetesNamespace');
+                this.jhipsterConsole = this.config.get('jhipsterConsole');
+                this.prometheusOperator = this.config.get('prometheusOperator');
+                this.kubernetesServiceType = this.config.get('kubernetesServiceType');
+                this.ingressDomain = this.config.get('ingressDomain');
+
+                this.DOCKER_JHIPSTER_REGISTRY = constants.DOCKER_JHIPSTER_REGISTRY;
+                this.DOCKER_JHIPSTER_ELASTICSEARCH = constants.DOCKER_JHIPSTER_ELASTICSEARCH;
+                this.DOCKER_JHIPSTER_LOGSTASH = constants.DOCKER_JHIPSTER_LOGSTASH;
+                this.DOCKER_JHIPSTER_CONSOLE = constants.DOCKER_JHIPSTER_CONSOLE;
+                this.DOCKER_TRAEFIK = constants.DOCKER_TRAEFIK;
+                this.DOCKER_CONSUL = constants.DOCKER_CONSUL;
+                this.DOCKER_CONSUL_CONFIG_LOADER = constants.DOCKER_CONSUL_CONFIG_LOADER;
+                this.DOCKER_MYSQL = constants.DOCKER_MYSQL;
+                this.DOCKER_MARIADB = constants.DOCKER_MARIADB;
+                this.DOCKER_POSTGRESQL = constants.DOCKER_POSTGRESQL;
+                this.DOCKER_ORACLE = constants.DOCKER_ORACLE;
+                this.DOCKER_MONGODB = constants.DOCKER_MONGODB;
+                this.DOCKER_ELASTICSEARCH = constants.DOCKER_ELASTICSEARCH;
+                this.DOCKER_KAFKA = constants.DOCKER_KAFKA;
+                this.DOCKER_ZOOKEEPER = constants.DOCKER_ZOOKEEPER;
+
+                if (this.defaultAppsFolders !== undefined) {
+                    this.log('\nFound .yo-rc.json config file...');
                 }
-                done();
-            });
-        },
-
-        checkKubernetes() {
-            if (this.skipChecks) return;
-            const done = this.async();
-
-            shelljs.exec('kubectl version', { silent: true }, (code, stdout, stderr) => {
-                if (stderr) {
-                    this.log(`${chalk.yellow.bold('WARNING!')} kubectl 1.2 or later is not installed on your computer.\n` +
-                      'Make sure you have Kubernetes installed. Read http://kubernetes.io/docs/getting-started-guides/binary_release/\n');
-                }
-                done();
-            });
-        },
-
-        loadConfig() {
-            this.defaultAppsFolders = this.config.get('appsFolders');
-            this.directoryPath = this.config.get('directoryPath');
-            this.clusteredDbApps = this.config.get('clusteredDbApps');
-            this.serviceDiscoveryType = this.config.get('serviceDiscoveryType');
-            this.adminPassword = this.config.get('adminPassword');
-            this.jwtSecretKey = this.config.get('jwtSecretKey');
-            this.dockerRepositoryName = this.config.get('dockerRepositoryName');
-            this.dockerPushCommand = this.config.get('dockerPushCommand');
-            this.kubernetesNamespace = this.config.get('kubernetesNamespace');
-
-            this.DOCKER_JHIPSTER_REGISTRY = constants.DOCKER_JHIPSTER_REGISTRY;
-            this.DOCKER_CONSUL = constants.DOCKER_CONSUL;
-            this.DOCKER_CONSUL_CONFIG_LOADER = constants.DOCKER_CONSUL_CONFIG_LOADER;
-            this.DOCKER_MYSQL = constants.DOCKER_MYSQL;
-            this.DOCKER_MARIADB = constants.DOCKER_MARIADB;
-            this.DOCKER_POSTGRESQL = constants.DOCKER_POSTGRESQL;
-            this.DOCKER_ORACLE = constants.DOCKER_ORACLE;
-            this.DOCKER_MONGODB = constants.DOCKER_MONGODB;
-            this.DOCKER_ELASTICSEARCH = constants.DOCKER_ELASTICSEARCH;
-            this.DOCKER_KAFKA = constants.DOCKER_KAFKA;
-            this.DOCKER_ZOOKEEPER = constants.DOCKER_ZOOKEEPER;
-
-            if (this.defaultAppsFolders !== undefined) {
-                this.log('\nFound .yo-rc.json config file...');
             }
-        }
-    },
+        };
+    }
 
     _getAppFolders(input) {
         const files = shelljs.ls('-l', this.destinationPath(input));
@@ -137,85 +121,57 @@ module.exports = KubernetesGenerator.extend({
         });
 
         return appsFolders;
-    },
+    }
 
-    prompting: {
-        askForApplicationType: prompts.askForApplicationType,
-        askForPath: prompts.askForPath,
-        askForApps: prompts.askForApps,
-        // cluster for mongodb: it can be done later
-        // askForClustersMode: prompts.askForClustersMode,
-        askForServiceDiscovery: prompts.askForServiceDiscovery,
-        askForAdminPassword: prompts.askForAdminPassword,
-        askForKubernetesNamespace: prompts.askForKubernetesNamespace,
-        askForDockerRepositoryName: prompts.askForDockerRepositoryName,
-        askForDockerPushCommand: prompts.askForDockerPushCommand
-    },
+    get prompting() {
+        return {
+            askForApplicationType: prompts.askForApplicationType,
+            askForPath: prompts.askForPath,
+            askForApps: prompts.askForApps,
+            // cluster for mongodb: it can be done later
+            // askForClustersMode: prompts.askForClustersMode,
+            askForServiceDiscovery: prompts.askForServiceDiscovery,
+            askForAdminPassword: prompts.askForAdminPassword,
+            askForKubernetesNamespace: prompts.askForKubernetesNamespace,
+            askForDockerRepositoryName: prompts.askForDockerRepositoryName,
+            askForDockerPushCommand: prompts.askForDockerPushCommand,
+            askForJhipsterConsole: prompts.askForJhipsterConsole,
+            askForPrometheusOperator: prompts.askForPrometheusOperator,
+            askForKubernetesServiceType: prompts.askForKubernetesServiceType,
+            askForIngressDomain: prompts.askForIngressDomain
+        };
+    }
 
-    configuring: {
-        insight() {
-            const insight = this.insight();
-            insight.trackWithEvent('generator', 'kubernetes');
-        },
+    get configuring() {
+        return {
+            insight() {
+                const insight = this.insight();
+                insight.trackWithEvent('generator', 'kubernetes');
+            },
 
-        checkImages() {
-            this.log('\nChecking Docker images in applications\' directories...');
+            checkImages: docker.checkImages,
+            generateJwtSecret: docker.generateJwtSecret,
+            configureImageNames: docker.configureImageNames,
+            setAppsFolderPaths: docker.setAppsFolderPaths,
 
-            let imagePath = '';
-            let runCommand = '';
-            this.warning = false;
-            this.warningMessage = 'To generate Docker image, please run:\n';
-            for (let i = 0; i < this.appsFolders.length; i++) {
-                if (this.appConfigs[i].buildTool === 'maven') {
-                    imagePath = this.destinationPath(`${this.directoryPath + this.appsFolders[i]}/target/docker/${_.kebabCase(this.appConfigs[i].baseName)}-*.war`);
-                    runCommand = './mvnw package -Pprod docker:build';
-                } else {
-                    imagePath = this.destinationPath(`${this.directoryPath + this.appsFolders[i]}/build/docker/${_.kebabCase(this.appConfigs[i].baseName)}-*.war`);
-                    runCommand = './gradlew -Pprod bootRepackage buildDocker';
-                }
-                if (shelljs.ls(imagePath).length === 0) {
-                    this.warning = true;
-                    this.warningMessage += `  ${chalk.cyan(runCommand)} in ${this.destinationPath(this.directoryPath + this.appsFolders[i])}\n`;
-                }
+            saveConfig() {
+                this.config.set('appsFolders', this.appsFolders);
+                this.config.set('directoryPath', this.directoryPath);
+                this.config.set('clusteredDbApps', this.clusteredDbApps);
+                this.config.set('serviceDiscoveryType', this.serviceDiscoveryType);
+                this.config.set('jwtSecretKey', this.jwtSecretKey);
+                this.config.set('dockerRepositoryName', this.dockerRepositoryName);
+                this.config.set('dockerPushCommand', this.dockerPushCommand);
+                this.config.set('kubernetesNamespace', this.kubernetesNamespace);
+                this.config.set('kubernetesServiceType', this.kubernetesServiceType);
+                this.config.set('ingressDomain', this.ingressDomain);
             }
-        },
+        };
+    }
 
-        configureImageNames() {
-            for (let i = 0; i < this.appsFolders.length; i++) {
-                const originalImageName = this.appConfigs[i].baseName.toLowerCase();
-                const targetImageName = this.dockerRepositoryName ? `${this.dockerRepositoryName}/${originalImageName}` : originalImageName;
-                this.appConfigs[i].targetImageName = targetImageName;
-            }
-        },
-
-        generateJwtSecret() {
-            if (this.jwtSecretKey === undefined) {
-                this.jwtSecretKey = crypto.randomBytes(20).toString('hex');
-            }
-        },
-
-        setAppsFolderPaths() {
-            if (this.applicationType) return;
-            this.appsFolderPaths = [];
-            for (let i = 0; i < this.appsFolders.length; i++) {
-                const path = this.destinationPath(this.directoryPath + this.appsFolders[i]);
-                this.appsFolderPaths.push(path);
-            }
-        },
-
-        saveConfig() {
-            this.config.set('appsFolders', this.appsFolders);
-            this.config.set('directoryPath', this.directoryPath);
-            this.config.set('clusteredDbApps', this.clusteredDbApps);
-            this.config.set('serviceDiscoveryType', this.serviceDiscoveryType);
-            this.config.set('jwtSecretKey', this.jwtSecretKey);
-            this.config.set('dockerRepositoryName', this.dockerRepositoryName);
-            this.config.set('dockerPushCommand', this.dockerPushCommand);
-            this.config.set('kubernetesNamespace', this.kubernetesNamespace);
-        }
-    },
-
-    writing: writeFiles(),
+    get writing() {
+        return writeFiles();
+    }
 
     end() {
         if (this.warning) {
@@ -236,6 +192,15 @@ module.exports = KubernetesGenerator.extend({
         }
 
         this.log('\nYou can deploy all your apps by running: ');
+        if (this.kubernetesNamespace !== 'default') {
+            this.log(`  ${chalk.cyan('kubectl apply -f namespace.yml')}`);
+        }
+        if (this.jhipsterConsole) {
+            this.log(`  ${chalk.cyan('kubectl apply -f console')}`);
+        }
+        if (this.prometheusOperator) {
+            this.log(`  ${chalk.cyan('kubectl apply -f prometheus-tpr.yml')}`);
+        }
         if (this.gatewayNb >= 1 || this.microserviceNb >= 1) {
             this.log(`  ${chalk.cyan('kubectl apply -f registry')}`);
         }
@@ -244,13 +209,14 @@ module.exports = KubernetesGenerator.extend({
         }
 
         if (this.gatewayNb + this.monolithicNb >= 1) {
+            const namespaceSuffix = this.kubernetesNamespace === 'default' ? '' : ` -n ${this.kubernetesNamespace}`;
             this.log('\nUse these commands to find your application\'s IP addresses:');
             for (let i = 0; i < this.appsFolders.length; i++) {
                 if (this.appConfigs[i].applicationType === 'gateway' || this.appConfigs[i].applicationType === 'monolith') {
-                    this.log(`  ${chalk.cyan(`kubectl get svc ${this.appConfigs[i].baseName.toLowerCase()}`)}`);
+                    this.log(`  ${chalk.cyan(`kubectl get svc ${this.appConfigs[i].baseName.toLowerCase()}${namespaceSuffix}`)}`);
                 }
             }
             this.log();
         }
     }
-});
+};

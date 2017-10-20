@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +21,7 @@ import { NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { JhiLanguageService } from 'ng-jhipster';
 
 import { Register } from './register.service';
-import { LoginModalService } from '../../shared';
+import { LoginModalService, EMAIL_ALREADY_USED_TYPE, LOGIN_ALREADY_USED_TYPE } from '../../shared';
 
 @Component({
     selector: '<%=jhiPrefix%>-register',
@@ -86,9 +86,9 @@ export class RegisterComponent implements OnInit, AfterViewInit {
 
     private processError(response) {
         this.success = null;
-        if (response.status === 400 && response._body === 'login already in use') {
+        if (response.status === 400 && response.json().type === LOGIN_ALREADY_USED_TYPE) {
             this.errorUserExists = 'ERROR';
-        } else if (response.status === 400 && response._body === 'email address already in use') {
+        } else if (response.status === 400 && response.json().type === EMAIL_ALREADY_USED_TYPE) {
             this.errorEmailExists = 'ERROR';
         } else {
             this.error = 'ERROR';

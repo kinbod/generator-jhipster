@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,16 +19,16 @@
 <div>
     <h2>
         <span jhiTranslate="userManagement.home.title">Users</span>
-        <button class="btn btn-primary float-right" [routerLink]="['/', { outlets: { popup: ['user-management-new'] } }]">
+        <button class="btn btn-primary float-right jh-create-entity" [routerLink]="['/', { outlets: { popup: ['user-management-new'] } }]">
             <span class="fa fa-plus"></span> <span jhiTranslate="userManagement.home.createLabel">Create a new User</span>
         </button>
     </h2>
-    <jhi-alert></jhi-alert>
+    <<%=jhiPrefix%>-alert></<%=jhiPrefix%>-alert>
     <div class="table-responsive" *ngIf="users">
         <table class="table table-striped">
             <thead>
             <tr<% if (databaseType !== 'cassandra') { %> jhiSort [(predicate)]="predicate" [(ascending)]="reverse" [callback]="transition.bind(this)"<% } %>>
-            <th<% if (databaseType !== 'cassandra') { %> jhiSortBy="id"<% } %>><span jhiTranslate="global.field.id">ID</span><%_ if (databaseType !== 'cassandra') { _%> <span class="fa fa-sort"></span><%_ } _%></th>
+                <th<% if (databaseType !== 'cassandra') { %> jhiSortBy="id"<% } %>><span jhiTranslate="global.field.id">ID</span><% if (databaseType !== 'cassandra') { %> <span class="fa fa-sort"></span><% } %></th>
                 <th<% if (databaseType !== 'cassandra') { %> jhiSortBy="login"<% } %>><span jhiTranslate="userManagement.login">Login</span><% if (databaseType !== 'cassandra') { %> <span class="fa fa-sort"></span><% } %></th>
                 <th<% if (databaseType !== 'cassandra') { %> jhiSortBy="email"<% } %>><span jhiTranslate="userManagement.email">Email</span><% if (databaseType !== 'cassandra') { %> <span class="fa fa-sort"></span><% } %></th>
                 <th></th>
@@ -50,15 +50,15 @@
                 <td>{{user.login}}</td>
                 <td>{{user.email}}</td>
                 <td>
-                    <span class="badge badge-danger hand" (click)="setActive(user, true)" *ngIf="!user.activated"
-                          jhiTranslate="userManagement.deactivated">Deactivated</span>
-                    <span class="badge badge-success hand" (click)="setActive(user, false)" *ngIf="user.activated"
-                          jhiTranslate="userManagement.activated">Activated</span>
+                    <button class="btn btn-danger btn-sm" (click)="setActive(user, true)" *ngIf="!user.activated"
+                            jhiTranslate="userManagement.deactivated">Deactivated</button>
+                    <button class="btn btn-success btn-sm" (click)="setActive(user, false)" *ngIf="user.activated"
+                            [disabled]="currentAccount.login === user.login" jhiTranslate="userManagement.activated">Activated</button>
                 </td>
                 <% if (enableTranslation) { %><td>{{user.langKey}}</td><% } %>
                 <td>
                     <div *ngFor="let authority of user.authorities">
-                        <span class="tag tag-info">{{ authority }}</span>
+                        <span class="badge badge-info">{{ authority }}</span>
                     </div>
                 </td>
                 <%_ if (databaseType !== 'cassandra') { _%>
@@ -72,21 +72,21 @@
                                 [routerLink]="['../user-management', user.login]"
                                 class="btn btn-info btn-sm">
                             <span class="fa fa-eye"></span>
-                            <span class="hidden-md-down" jhiTranslate="entity.action.view">View</span>
+                            <span class="d-none d-md-inline" jhiTranslate="entity.action.view">View</span>
                         </button>
                         <button type="submit"
                                 [routerLink]="['/', { outlets: { popup: 'user-management/'+ user.login + '/edit'} }]"
                                 replaceUrl="true"
                                 class="btn btn-primary btn-sm">
                             <span class="fa fa-pencil"></span>
-                            <span class="hidden-md-down" jhiTranslate="entity.action.edit">Edit</span>
+                            <span class="d-none d-md-inline" jhiTranslate="entity.action.edit">Edit</span>
                         </button>
                         <button type="submit"
                                 [routerLink]="['/', { outlets: { popup: 'user-management/'+ user.login + '/delete'} }]"
                                 replaceUrl="true"
-                                class="btn btn-danger btn-sm" [disabled]="currentAccount.login==user.login">
+                                class="btn btn-danger btn-sm" [disabled]="currentAccount.login === user.login">
                             <span class="fa fa-remove"></span>
-                            <span class="hidden-md-down" jhiTranslate="entity.action.delete">Delete</span>
+                            <span class="d-none d-md-inline" jhiTranslate="entity.action.delete">Delete</span>
                         </button>
                     </div>
                 </td>
@@ -100,7 +100,7 @@
             <jhi-item-count [page]="page" [total]="queryCount" [itemsPerPage]="itemsPerPage"></jhi-item-count>
         </div>
         <div class="row justify-content-center">
-            <ngb-pagination [collectionSize]="totalItems" [(page)]="page" (pageChange)="loadPage(page)"></ngb-pagination>
+            <ngb-pagination [collectionSize]="totalItems" [pageSize]="itemsPerPage" [(page)]="page" (pageChange)="loadPage(page)"></ngb-pagination>
         </div>
     </div>
     <%_ } _%>

@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,17 +23,17 @@ CREATE TABLE IF NOT EXISTS <%= entityInstance %> (
         const fieldName = fields[idx].fieldName;
         const fieldNameUnderscored = fields[idx].fieldNameUnderscored;
         const fieldTypeBlobContent = fields[idx].fieldTypeBlobContent;
-        if (fieldType == 'UUID') { %>
-    <%= fieldName %> uuid,<% } else if (fieldType == 'String') { %>
-    <%= fieldName %> text,<% } else if (fieldType == 'Integer') { %>
-    <%= fieldName %> int,<% } else if (fieldType == 'Long') { %>
-    <%= fieldName %> bigint,<% } else if (fieldType == 'Float') { %>
-    <%= fieldName %> float,<% } else if (fieldType == 'Double') { %>
-    <%= fieldName %> double,<% } else if (fieldType == 'BigDecimal') { %>
-    <%= fieldName %> decimal,<% } else if (fieldType == 'LocalDate') { %>
-    <%= fieldName %> date,<% } else if (fieldType == 'Instant') { %>
-    <%= fieldName %> timestamp,<% } else if (fieldType == 'ZonedDateTime') { %>
-    <%= fieldName %> tuple<timestamp,varchar>,<% } else if (fieldType == 'Boolean') { %>
+        if (fieldType === 'UUID') { %>
+    <%= fieldName %> uuid,<% } else if (fieldType === 'String') { %>
+    <%= fieldName %> text,<% } else if (fieldType === 'Integer') { %>
+    <%= fieldName %> int,<% } else if (fieldType === 'Long') { %>
+    <%= fieldName %> bigint,<% } else if (fieldType === 'Float') { %>
+    <%= fieldName %> float,<% } else if (fieldType === 'Double') { %>
+    <%= fieldName %> double,<% } else if (fieldType === 'BigDecimal') { %>
+    <%= fieldName %> decimal,<% } else if (fieldType === 'LocalDate') { %>
+    <%= fieldName %> date,<% } else if (fieldType === 'Instant') { %>
+    <%= fieldName %> timestamp,<% } else if (fieldType === 'ZonedDateTime') { %>
+    <%= fieldName %> tuple<timestamp,varchar>,<% } else if (fieldType === 'Boolean') { %>
     <%= fieldName %> boolean,<% } else if (fieldType === 'ByteBuffer') { %>
     <%= fieldName %> blob,<% if (fieldTypeBlobContent !== 'text') { %>
     <%= fieldNameUnderscored %>_content_type text,<% } } } %>

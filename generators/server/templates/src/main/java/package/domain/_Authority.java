@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,10 +18,10 @@
 -%>
 package <%=packageName%>.domain;
 
-<% if (hibernateCache != 'no' && databaseType == 'sql') { %>import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;<% } %><% if (databaseType == 'mongodb') { %>
+<% if (hibernateCache !== 'no' && databaseType === 'sql') { %>import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;<% } %><% if (databaseType === 'mongodb') { %>
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;<% } %><% if (databaseType == 'sql') { %>
+import org.springframework.data.mongodb.core.mapping.Document;<% } %><% if (databaseType === 'sql') { %>
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
@@ -32,18 +32,28 @@ import java.io.Serializable;
 
 /**
  * An authority (a security role) used by Spring Security.
- */<% if (databaseType == 'sql') { %>
+ */
+<%_ if (databaseType === 'sql') { _%>
 @Entity
-@Table(name = "jhi_authority")<% if (hibernateCache != 'no') { %>
-@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)<% } %><% } %><% if (databaseType == 'mongodb') { %>
-@Document(collection = "jhi_authority")<% } %>
+@Table(name = "<%= jhiTablePrefix %>_authority")
+    <%_ if (hibernateCache !== 'no') { _%>
+        <%_ if (hibernateCache === 'infinispan') { _%>
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+        <%_ } else { _%>
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
+        <%_ } _%>
+    <%_ } _%>
+<%_ } _%>
+<%_ if (databaseType === 'mongodb') { _%>
+@Document(collection = "<%= jhiTablePrefix %>_authority")
+<%_ } _%>
 public class Authority implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @NotNull
-    @Size(min = 0, max = 50)
-    @Id<% if (databaseType == 'sql') { %>
+    @Size(max = 50)
+    @Id<% if (databaseType === 'sql') { %>
     @Column(length = 50)<% } %>
     private String name;
 

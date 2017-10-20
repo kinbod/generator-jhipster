@@ -1,7 +1,7 @@
 /**
  * Copyright 2013-2017 the original author or authors from the JHipster project.
  *
- * This file is part of the JHipster project, see https://jhipster.github.io/
+ * This file is part of the JHipster project, see http://www.jhipster.tech/
  * for more information.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +24,7 @@ function writeFiles() {
     return {
         writeDockerCompose() {
             this.template('_docker-compose.yml', 'docker-compose.yml');
+            this.template('_README-DOCKER-COMPOSE.md', 'README-DOCKER-COMPOSE.md');
         },
 
         writeRegistryFiles() {
@@ -39,10 +40,23 @@ function writeFiles() {
             }
         },
 
+        writeTraefikFiles() {
+            if (this.gatewayType !== 'traefik') return;
+            this.template('_traefik.yml', 'traefik.yml');
+            this.template('traefik/_traefik.toml', 'traefik/traefik.toml');
+        },
+
         writeKafkaFiles() {
             if (!this.useKafka) return;
 
             this.template('_kafka.yml', 'kafka.yml');
+        },
+
+        writeKeycloakFiles() {
+            if (this.authenticationType !== 'oauth2') return;
+            this.template('_keycloak.yml', 'keycloak.yml');
+            this.template('realm-config/_jhipster-realm.json', 'realm-config/jhipster-realm.json');
+            this.template('realm-config/_jhipster-users-0.json', 'realm-config/jhipster-users-0.json');
         },
 
         writeElkFiles() {

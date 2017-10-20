@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,8 +22,8 @@
 # This configuration will be overridden by the Spring profile you use,
 # for example application-dev.yml if you use the "dev" profile.
 #
-# More information on profiles: https://jhipster.github.io/profiles/
-# More information on configuration properties: https://jhipster.github.io/common-application-properties/
+# More information on profiles: http://www.jhipster.tech/profiles/
+# More information on configuration properties: http://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
 # ===================================================================
@@ -32,7 +32,7 @@
 # http://docs.spring.io/spring-boot/docs/current/reference/html/common-application-properties.html
 # ===================================================================
 
-<%_ if (serviceDiscoveryType == 'eureka') { _%>
+<%_ if (serviceDiscoveryType === 'eureka') { _%>
 eureka:
     client:
         enabled: true
@@ -65,7 +65,7 @@ zuul: # those values must be configured depending on the application specific ne
         max-per-route-connections: 100
     semaphore:
         max-semaphores: 500
-    <%_ if (serviceDiscoveryType == 'consul') { _%>
+    <%_ if (serviceDiscoveryType === 'consul') { _%>
     ignoredServices: 'consul,<%= baseName %>' # Prevent Consul and the "<%= baseName %>" app itself from having a Zuul route automatically created for them
     <%_ } _%>
 
@@ -97,14 +97,14 @@ management:
     health:
         mail:
             enabled: false # When using the MailService, configure an SMTP server and set this to true
-<%_ if (messageBroker == 'kafka') { _%>
+<%_ if (messageBroker === 'kafka') { _%>
         binders:
             enabled: true
 <%_ } _%>
 spring:
     application:
         name: <%= baseName %>
-    <%_ if (serviceDiscoveryType == 'consul') { _%>
+    <%_ if (serviceDiscoveryType === 'consul') { _%>
     cloud:
         consul:
             discovery:
@@ -120,7 +120,7 @@ spring:
     <%_ } _%>
     jackson:
         serialization.write_dates_as_timestamps: false
-    <%_ if (databaseType == 'sql') { _%>
+    <%_ if (databaseType === 'sql') { _%>
     jpa:
         open-in-view: false
         hibernate:
@@ -155,14 +155,61 @@ spring:
 
         # jhipster-needle-add-social-configuration
 <%_ } _%>
+<%_ if (authenticationType === 'oauth2') { _%>
 
+# ===================================================================
+# OpenID Connect Settings. Default settings are for Keycloak in Docker.
+# Start Keycloak using `docker-compose -f src/main/docker/keycloak.yml up`.
+#
+# To use Okta, your settings should resemble the following:
+#
+# accessTokenUri: https://{yourOktaDomain}.com/oauth2/default/v1/token
+# userAuthorizationUri: https://{yourOktaDomain}.com/oauth2/default/v1/authorize
+# clientId: {copy after creating an OIDC app}
+# clientSecret: {copy after creating an OIDC app}
+# userInfoUri: https://{yourOktaDomain}.com/oauth2/default/v1/userinfo
+# tokenInfoUri: https://{yourOktaDomain}.com/oauth2/default/v1/introspect
+#
+# You can also override these properties using environment variables.
+# For example:
+#
+# export SECURITY_OAUTH2_CLIENT_CLIENT_ID="jhipster"
+# export SECURITY_OAUTH2_CLIENT_CLIENT_SECRET="38561a05"
+# ===================================================================
+<%_ } _%>
 security:
     basic:
         enabled: false
-    <%_ if (authenticationType == 'oauth2' || authenticationType == 'uaa') { _%>
+    <%_ if (authenticationType === 'uaa') { _%>
     oauth2:
         resource:
             filter-order: 3
+    <%_ } _%>
+    <%_ if (authenticationType === 'oauth2') {  _%>
+    oauth2:
+        client:
+            access-token-uri: http://localhost:9080/auth/realms/jhipster/protocol/openid-connect/token
+            user-authorization-uri: http://localhost:9080/auth/realms/jhipster/protocol/openid-connect/auth
+            <%_ if (applicationType === 'gateway' || applicationType === 'monolith') { _%>
+            client-id: web_app
+            client-secret: web_app
+            client-authentication-scheme: form
+            scope: openid profile email
+            <%_ } _%>
+            <%_ if (applicationType === 'microservice') { _%>
+            client-id: internal
+            client-secret: internal
+            authentication-scheme: header
+            client-authentication-scheme: header
+            <%_ } _%>
+        resource:
+            user-info-uri: http://localhost:9080/auth/realms/jhipster/protocol/openid-connect/userinfo
+            token-info-uri: http://localhost:9080/auth/realms/jhipster/protocol/openid-connect/token/introspect
+            prefer-token-info: false
+            <%_ if (applicationType === 'gateway' || applicationType === 'microservice') {  _%>
+            jwt:
+                key-uri: http://localhost:9080/auth/realms/jhipster
+            <%_ } _%>
     <%_ } _%>
 
 server:
@@ -170,16 +217,14 @@ server:
         cookie:
             http-only: true
 
-<%_ if (serviceDiscoveryType === false) { _%>
 info:
     project:
         version: #project.version#
-<%_ } _%>
 
 # ===================================================================
 # JHipster specific properties
 #
-# Full reference is available at: https://jhipster.github.io/common-application-properties/
+# Full reference is available at: http://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
 jhipster:
@@ -210,7 +255,7 @@ jhipster:
         license-url:
 <%_ if (enableSocialSignIn) { _%>
     social:
-        <%_ if (authenticationType == 'jwt') { _%>
+        <%_ if (authenticationType === 'jwt') { _%>
         redirect-after-sign-in: "/#/social-auth"
         <%_ } else { _%>
         redirect-after-sign-in: "/#/"
@@ -225,7 +270,7 @@ jhipster:
 # to have type-safe configuration, like in the JHipsterProperties above
 #
 # More documentation is available at:
-# https://jhipster.github.io/common-application-properties/
+# http://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
 application:

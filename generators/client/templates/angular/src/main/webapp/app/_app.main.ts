@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
 -%>
 import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
 import { ProdConfig } from './blocks/config/prod.config';
-import { <%=angular2AppName%>AppModule } from './app.module';
+import { <%=angularXAppName%>AppModule } from './app.module';
 
 ProdConfig();
 
@@ -26,6 +26,6 @@ if (module['hot']) {
     module['hot'].accept();
 }
 
-platformBrowserDynamic().bootstrapModule(<%=angular2AppName%>AppModule)
+platformBrowserDynamic().bootstrapModule(<%=angularXAppName%>AppModule)
 .then((success) => console.log(`Application started`))
 .catch((err) => console.error(err));

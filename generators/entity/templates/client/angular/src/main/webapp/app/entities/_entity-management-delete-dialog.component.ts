@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,7 @@
 <%_
 const i18nToLoad = [entityInstance];
 for (const idx in fields) {
-    if (fields[idx].fieldIsEnum == true) {
+    if (fields[idx].fieldIsEnum === true) {
         i18nToLoad.push(fields[idx].enumInstance);
     }
 }
@@ -27,8 +27,8 @@ _%>
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
-import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import { JhiAlertService, JhiEventManager } from 'ng-jhipster';
+import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
 
 import { <%= entityAngularName %> } from './<%= entityFileName %>.model';
 import { <%= entityAngularName %>PopupService } from './<%= entityFileName %>-popup.service';
@@ -45,7 +45,6 @@ export class <%= entityAngularName %>DeleteDialogComponent {
     constructor(
         private <%= entityInstance %>Service: <%= entityAngularName %>Service,
         public activeModal: NgbActiveModal,
-        private alertService: JhiAlertService,
         private eventManager: JhiEventManager
     ) {
     }
@@ -54,7 +53,7 @@ export class <%= entityAngularName %>DeleteDialogComponent {
         this.activeModal.dismiss('cancel');
     }
 
-    confirmDelete(id: <% if (pkType == 'String') { %>string<% } else { %>number<% } %>) {
+    confirmDelete(id: <% if (pkType === 'String') { %>string<% } else { %>number<% } %>) {
         this.<%= entityInstance %>Service.delete(id).subscribe((response) => {
             this.eventManager.broadcast({
                 name: '<%= entityInstance %>ListModification',
@@ -62,11 +61,6 @@ export class <%= entityAngularName %>DeleteDialogComponent {
             });
             this.activeModal.dismiss(true);
         });
-        <%_ if (enableTranslation) { _%>
-        this.alertService.success('<%= angularAppName %>.<%= entityTranslationKey %>.deleted', { param : id }, null);
-        <%_ } else { _%>
-        this.alertService.success(`A <%= entityClassHumanized %> is deleted with identifier ${id}`, null, null);
-        <%_ } _%>
     }
 }
 
@@ -76,7 +70,6 @@ export class <%= entityAngularName %>DeleteDialogComponent {
 })
 export class <%= entityAngularName %>DeletePopupComponent implements OnInit, OnDestroy {
 
-    modalRef: NgbModalRef;
     routeSub: any;
 
     constructor(
@@ -86,8 +79,8 @@ export class <%= entityAngularName %>DeletePopupComponent implements OnInit, OnD
 
     ngOnInit() {
         this.routeSub = this.route.params.subscribe((params) => {
-            this.modalRef = this.<%= entityInstance %>PopupService
-                .open(<%= entityAngularName %>DeleteDialogComponent, params['id']);
+            this.<%= entityInstance %>PopupService
+                .open(<%= entityAngularName %>DeleteDialogComponent as Component, params['id']);
         });
     }
 

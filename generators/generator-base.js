@@ -1,7 +1,7 @@
 /**
  * Copyright 2013-2017 the original author or authors from the JHipster project.
  *
- * This file is part of the JHipster project, see https://jhipster.github.io/
+ * This file is part of the JHipster project, see http://www.jhipster.tech/
  * for more information.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,19 +19,18 @@
 
 const path = require('path');
 const _ = require('lodash');
-const Generator = require('yeoman-generator');
 const chalk = require('chalk');
-const Insight = require('insight');
 const fs = require('fs');
 const shelljs = require('shelljs');
 const semver = require('semver');
 const exec = require('child_process').exec;
 const os = require('os');
-const https = require('https');
 const pluralize = require('pluralize');
+const jhiCore = require('jhipster-core');
 const packagejs = require('../package.json');
-const jhipsterUtils = require('./util');
+const jhipsterUtils = require('./utils');
 const constants = require('./generator-constants');
+const PrivateBase = require('./generator-base-private');
 
 const JHIPSTER_CONFIG_DIR = '.jhipster';
 const MODULES_HOOK_FILE = `${JHIPSTER_CONFIG_DIR}/modules/jhi-hooks.json`;
@@ -42,11 +41,28 @@ const CLIENT_WEBPACK_DIR = constants.CLIENT_WEBPACK_DIR;
 const SERVER_MAIN_SRC_DIR = constants.SERVER_MAIN_SRC_DIR;
 const SERVER_MAIN_RES_DIR = constants.SERVER_MAIN_RES_DIR;
 
-module.exports = class extends Generator {
-
-    constructor(args, opts) {
-        super(args, opts);
-        this.env.options.appPath = this.config.get('appPath') || CLIENT_MAIN_SRC_DIR;
+/**
+ * This is the Generator base class.
+ * This provides all the public API methods exposed via the module system.
+ * The public API methods can be directly utilized as well using commonJS require.
+ *
+ * The method signatures in public API should not be changed without a major version change
+ */
+module.exports = class extends PrivateBase {
+    /**
+     * Get the JHipster configuration from the .yo-rc.json file.
+     *
+     * @param {string} namespace - namespace of the .yo-rc.json config file. By default: generator-jhipster
+     */
+    getJhipsterAppConfig(namespace = 'generator-jhipster') {
+        const fromPath = '.yo-rc.json';
+        if (shelljs.test('-f', fromPath)) {
+            const fileData = this.fs.readJSON(fromPath);
+            if (fileData && fileData[namespace]) {
+                return fileData[namespace];
+            }
+        }
+        return false;
     }
 
     /**
@@ -89,8 +105,35 @@ module.exports = class extends Generator {
             }
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + navbarPath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + routerName} ${chalk.yellow('not added to menu.\n')}`);
+            this.debug('Error:', e);
         }
     }
+
+    /**
+     * Add external resources to root file(index.html).
+     *
+     * @param {string} resources - Resources added to root file.
+     * @param {string} comment - comment to add before resources content.
+     */
+    addExternalResourcesToRoot(resources, comment) {
+        const indexFilePath = `${CLIENT_MAIN_SRC_DIR}index.html`;
+        let resourcesBlock = '';
+        if (comment) {
+            resourcesBlock += `<!-- ${comment} -->\n`;
+        }
+        resourcesBlock += `${resources}\n`;
+        try {
+            jhipsterUtils.rewriteFile({
+                file: indexFilePath,
+                needle: 'jhipster-needle-add-resources-to-root',
+                splicable: [resourcesBlock]
+            }, this);
+        } catch (e) {
+            this.log(`${chalk.yellow('\nUnable to find ') + indexFilePath + chalk.yellow(' or missing required jhipster-needle. Resources are not added to JHipster app.\n')}`);
+            this.debug('Error:', e);
+        }
+    }
+
 
     /**
      * Add a new menu element to the admin menu.
@@ -132,6 +175,7 @@ module.exports = class extends Generator {
             }
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + navbarAdminPath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + routerName} ${chalk.yellow('not added to admin menu.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -183,26 +227,29 @@ module.exports = class extends Generator {
                     file: entityMenuPath,
                     needle: 'jhipster-needle-add-entity-to-menu',
                     splicable: [
-                        this.stripMargin(
-                            `|<li>
+                        this.stripMargin(`|<li>
                              |                        <a class="dropdown-item" routerLink="${routerName}" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" (click)="collapseNavbar()">
                              |                            <i class="fa fa-fw fa-asterisk" aria-hidden="true"></i>
                              |                            <span${enableTranslation ? ` jhiTranslate="global.menu.entities.${_.camelCase(routerName)}"` : ''}>${_.startCase(routerName)}</span>
                              |                        </a>
-                             |                    </li>`
-                        )
+                             |                    </li>`)
                     ]
                 }, this);
             }
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + entityMenuPath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + routerName} ${chalk.yellow('not added to menu.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
     /**
      * Add a new entity in the TS modules file.
      *
-     * @param {string} routerName - The name of the AngularJS router (which by default is the name of the entity).
+     * @param {string} entityInstance - Entity Instance
+     * @param {string} entityClass - Entity Class
+     * @param {string} entityAngularName - Entity Angular Name
+     * @param {string} entityFolderName - Entity Folder Name
+     * @param {string} entityFileName - Entity File Name
      * @param {boolean} enableTranslation - If translations are enabled or not
      * @param {string} clientFramework - The name of the client framework
      */
@@ -212,7 +259,7 @@ module.exports = class extends Generator {
             if (clientFramework === 'angular1') {
                 return;
             }
-            const appName = this.getAngular2AppName();
+            const appName = this.getAngularXAppName();
             let importStatement = `|import { ${appName}${entityAngularName}Module } from './${entityFolderName}/${entityFileName}.module';`;
             if (importStatement.length > constants.LINE_LENGTH) {
                 importStatement =
@@ -232,14 +279,12 @@ module.exports = class extends Generator {
                 file: entityModulePath,
                 needle: 'jhipster-needle-add-entity-module',
                 splicable: [
-                    this.stripMargin(
-                        `|${appName}${entityAngularName}Module,`
-                    )
+                    this.stripMargin(`|${appName}${entityAngularName}Module,`)
                 ]
             }, this);
         } catch (e) {
-            this.log(e);
             this.log(`${chalk.yellow('\nUnable to find ') + entityModulePath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + entityInstance + entityClass + entityFolderName + entityFileName} ${chalk.yellow(`not added to ${entityModulePath}.\n`)}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -278,19 +323,17 @@ module.exports = class extends Generator {
                 file: adminModulePath,
                 needle: 'jhipster-needle-add-admin-module',
                 splicable: [
-                    this.stripMargin(
-                        `|${appName}${adminAngularName}Module,`
-                    )
+                    this.stripMargin(`|${appName}${adminAngularName}Module,`)
                 ]
             }, this);
         } catch (e) {
-            this.log(e);
             this.log(`${chalk.yellow('\nUnable to find ') + appName + chalk.yellow(' or missing required jhipster-needle. Reference to ') + adminAngularName + adminFolderName + adminFileName + enableTranslation + clientFramework} ${chalk.yellow(`not added to ${adminModulePath}.\n`)}`);
+            this.debug('Error:', e);
         }
     }
 
     /**
-     * A a new element in the "global.json" translations.
+     * Add a new element in the "global.json" translations.
      *
      * @param {string} key - Key for the menu entry
      * @param {string} value - Default translated value
@@ -308,11 +351,12 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + language + chalk.yellow(' not added as a new entity in the menu.\n'));
+            this.debug('Error:', e);
         }
     }
 
     /**
-     * A a new element in the admin section of "global.json" translations.
+     * Add a new element in the admin section of "global.json" translations.
      *
      * @param {string} key - Key for the menu entry
      * @param {string} value - Default translated value
@@ -330,11 +374,12 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + language + chalk.yellow(' not added as a new entry in the admin menu.\n'));
+            this.debug('Error:', e);
         }
     }
 
     /**
-     * A a new entity in the "global.json" translations.
+     * Add a new entity in the "global.json" translations.
      *
      * @param {string} key - Key for the entity name
      * @param {string} value - Default translated value
@@ -352,11 +397,12 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + language + chalk.yellow(' not added as a new entity in the menu.\n'));
+            this.debug('Error:', e);
         }
     }
 
     /**
-     * A a new entry as a root param in "global.json" translations.
+     * Add a new entry as a root param in "global.json" translations.
      *
      * @param {string} key - Key for the entry
      * @param {string} value - Default translated value or object with multiple key and translated value
@@ -370,6 +416,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow('. Reference to ')}(key: ${key}, value:${value})${chalk.yellow(' not added to global translations.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -401,6 +448,7 @@ module.exports = class extends Generator {
                     languages.push(language);
                 }
             } catch (e) {
+                this.debug('Error:', e);
                 // An exception is thrown if the folder doesn't exist
                 // do nothing as the language might not be installed
             }
@@ -424,43 +472,22 @@ module.exports = class extends Generator {
     }
 
     /**
+     * check if Right-to-Left support is necesary for i18n
+     * @param {string[]} languages - languages array
+     */
+    isI18nRTLSupportNecessary(languages) {
+        if (!languages) {
+            return false;
+        }
+        const rtlLanguages = this.getAllSupportedLanguageOptions().filter(langObj => langObj.rtl);
+        return languages.some(lang => !!rtlLanguages.find(langObj => langObj.value === lang));
+    }
+
+    /**
      * get all the languages options supported by JHipster
      */
     getAllSupportedLanguageOptions() {
-        return [
-            { name: 'Armenian', value: 'hy' },
-            { name: 'Catalan', value: 'ca' },
-            { name: 'Chinese (Simplified)', value: 'zh-cn' },
-            { name: 'Chinese (Traditional)', value: 'zh-tw' },
-            { name: 'Czech', value: 'cs' },
-            { name: 'Danish', value: 'da' },
-            { name: 'Dutch', value: 'nl' },
-            { name: 'English', value: 'en' },
-            { name: 'Estonian', value: 'et' },
-            { name: 'French', value: 'fr' },
-            { name: 'Galician', value: 'gl' },
-            { name: 'German', value: 'de' },
-            { name: 'Greek', value: 'el' },
-            { name: 'Hindi', value: 'hi' },
-            { name: 'Hungarian', value: 'hu' },
-            { name: 'Italian', value: 'it' },
-            { name: 'Japanese', value: 'ja' },
-            { name: 'Korean', value: 'ko' },
-            { name: 'Marathi', value: 'mr' },
-            { name: 'Polish', value: 'pl' },
-            { name: 'Portuguese (Brazilian)', value: 'pt-br' },
-            { name: 'Portuguese', value: 'pt-pt' },
-            { name: 'Romanian', value: 'ro' },
-            { name: 'Russian', value: 'ru' },
-            { name: 'Slovak', value: 'sk' },
-            { name: 'Serbian', value: 'sr' },
-            { name: 'Spanish', value: 'es' },
-            { name: 'Swedish', value: 'sv' },
-            { name: 'Turkish', value: 'tr' },
-            { name: 'Tamil', value: 'ta' },
-            { name: 'Thai', value: 'th' },
-            { name: 'Vietnamese', value: 'vi' }
-        ];
+        return constants.LANGUAGES;
     }
 
     /**
@@ -491,6 +518,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow('. Reference to ')}social configuration ${name}${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -504,11 +532,14 @@ module.exports = class extends Generator {
         const fullPath = 'bower.json';
         try {
             jhipsterUtils.rewriteJSONFile(fullPath, (jsonObj) => {
+                if (jsonObj.dependencies === undefined) {
+                    jsonObj.dependencies = {};
+                }
                 jsonObj.dependencies[name] = version;
             }, this);
         } catch (e) {
-            this.log(e);
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow('. Reference to ')}bower dependency (name: ${name}, version:${version})${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -542,6 +573,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow('. Reference to ')}bower override configuration (bowerPackageName: ${bowerPackageName}, main:${JSON.stringify(main)}, ignore:${isIgnored})${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -549,7 +581,7 @@ module.exports = class extends Generator {
      * Add a new parameter in the ".bowerrc".
      *
      * @param {string} key - name of the parameter
-     * @param {string, obj, bool, etc.} value - value of the parameter
+     * @param {string | boolean | any} value - value of the parameter
      */
     addBowerrcParameter(key, value) {
         const fullPath = '.bowerrc';
@@ -560,6 +592,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow('. Reference to ')}bowerrc parameter (key: ${key}, value:${value})${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -573,11 +606,14 @@ module.exports = class extends Generator {
         const fullPath = 'package.json';
         try {
             jhipsterUtils.rewriteJSONFile(fullPath, (jsonObj) => {
+                if (jsonObj.dependencies === undefined) {
+                    jsonObj.dependencies = {};
+                }
                 jsonObj.dependencies[name] = version;
             }, this);
         } catch (e) {
-            this.log(e);
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow('. Reference to ')}npm dependency (name: ${name}, version:${version})${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -591,11 +627,14 @@ module.exports = class extends Generator {
         const fullPath = 'package.json';
         try {
             jhipsterUtils.rewriteJSONFile(fullPath, (jsonObj) => {
+                if (jsonObj.devDependencies === undefined) {
+                    jsonObj.devDependencies = {};
+                }
                 jsonObj.devDependencies[name] = version;
             }, this);
         } catch (e) {
-            this.log(e);
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow('. Reference to ')}npm devDependency (name: ${name}, version:${version})${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -609,16 +648,19 @@ module.exports = class extends Generator {
         const fullPath = 'package.json';
         try {
             jhipsterUtils.rewriteJSONFile(fullPath, (jsonObj) => {
+                if (jsonObj.scripts === undefined) {
+                    jsonObj.scripts = {};
+                }
                 jsonObj.scripts[name] = data;
             }, this);
         } catch (e) {
-            this.log(e);
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow('. Reference to ')}npm script (name: ${name}, data:${data})${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
     /**
-     * Add a new module to the angular application in "app.module.js".
+     * Add a new module to the AngularJS application in "app.module.js".
      *
      * @param {string} moduleName - module name
      *
@@ -635,6 +677,51 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + moduleName + chalk.yellow(' not added to JHipster app.\n'));
+            this.debug('Error:', e);
+        }
+    }
+
+    /**
+     * Add a new module in the TS modules file.
+     *
+     * @param {string} appName - Angular2 application name.
+     * @param {string} angularName - The name of the new admin item.
+     * @param {string} folderName - The name of the folder.
+     * @param {string} fileName - The name of the file.
+     * @param {boolean} enableTranslation - If translations are enabled or not.
+     * @param {string} clientFramework - The name of the client framework.
+     */
+    addAngularModule(appName, angularName, folderName, fileName, enableTranslation, clientFramework) {
+        const modulePath = `${CLIENT_MAIN_SRC_DIR}app/app.module.ts`;
+        try {
+            if (clientFramework === 'angular1') {
+                return;
+            }
+            let importStatement = `|import { ${appName}${angularName}Module } from './${folderName}/${fileName}.module';`;
+            if (importStatement.length > constants.LINE_LENGTH) {
+                importStatement =
+                    `|import {
+                     |    ${appName}${angularName}Module
+                     |} from './${folderName}/${fileName}.module';`;
+            }
+            jhipsterUtils.rewriteFile({
+                file: modulePath,
+                needle: 'jhipster-needle-angular-add-module-import',
+                splicable: [
+                    this.stripMargin(importStatement)
+                ]
+            }, this);
+
+            jhipsterUtils.rewriteFile({
+                file: modulePath,
+                needle: 'jhipster-needle-angular-add-module',
+                splicable: [
+                    this.stripMargin(`|${appName}${angularName}Module,`)
+                ]
+            }, this);
+        } catch (e) {
+            this.log(`${chalk.yellow('\nUnable to find ') + appName + chalk.yellow(' or missing required jhipster-needle. Reference to ') + angularName + folderName + fileName + enableTranslation + clientFramework} ${chalk.yellow(`not added to ${modulePath}.\n`)}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -656,46 +743,83 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Interceptor not added to JHipster app.\n'));
+            this.debug('Error:', e);
         }
     }
 
     /**
-     * Add a new entity to the Ehcache, for the 2nd level cache of an entity and its relationships.
+     * Add a new entity to Ehcache, for the 2nd level cache of an entity and its relationships.
      *
-     * @param {string} entityClass - the entity to cache.
+     * @param {string} entityClass - the entity to cache
      * @param {array} relationships - the relationships of this entity
      * @param {string} packageName - the Java package name
      * @param {string} packageFolder - the Java package folder
      */
     addEntityToEhcache(entityClass, relationships, packageName, packageFolder) {
-        // Add the entity to ehcache
-        this.addEntryToEhcache(`${packageName}.domain.${entityClass}.class.getName()`, packageFolder);
-        // Add the collections linked to that entity to ehcache
-        relationships.forEach((relationship) => {
-            const relationshipType = relationship.relationshipType;
-            if (relationshipType === 'one-to-many' || relationshipType === 'many-to-many') {
-                this.addEntryToEhcache(`${packageName}.domain.${entityClass}.class.getName() + ".${relationship.relationshipFieldNamePlural}"`, packageFolder);
-            }
-        });
+        this.addEntityToCache(entityClass, relationships, packageName, packageFolder, 'ehcache');
     }
 
     /**
      * Add a new entry to Ehcache in CacheConfiguration.java
      *
-     * @param {string} entry - the entry (including package name) to cache.
+     * @param {string} entry - the entry (including package name) to cache
      * @param {string} packageFolder - the Java package folder
      */
     addEntryToEhcache(entry, packageFolder) {
+        this.addEntryToCache(entry, packageFolder, 'ehcache');
+    }
+
+    /**
+     * Add a new entity to the chosen cache provider, for the 2nd level cache of an entity and its relationships.
+     *
+     * @param {string} entityClass - the entity to cache
+     * @param {array} relationships - the relationships of this entity
+     * @param {string} packageName - the Java package name
+     * @param {string} packageFolder - the Java package folder
+     * @param {string} cacheProvider - the cache provider
+     */
+    addEntityToCache(entityClass, relationships, packageName, packageFolder, cacheProvider) {
+        // Add the entity to ehcache
+        this.addEntryToCache(`${packageName}.domain.${entityClass}.class.getName()`, packageFolder, cacheProvider);
+        // Add the collections linked to that entity to ehcache
+        relationships.forEach((relationship) => {
+            const relationshipType = relationship.relationshipType;
+            if (relationshipType === 'one-to-many' || relationshipType === 'many-to-many') {
+                this.addEntryToCache(`${packageName}.domain.${entityClass}.class.getName() + ".${relationship.relationshipFieldNamePlural}"`, packageFolder, cacheProvider);
+            }
+        });
+    }
+
+    /**
+     * Add a new entry to the chosen cache provider in CacheConfiguration.java
+     *
+     * @param {string} entry - the entry (including package name) to cache
+     * @param {string} packageFolder - the Java package folder
+     * @param {string} cacheProvider - the cache provider
+     */
+    addEntryToCache(entry, packageFolder, cacheProvider) {
         try {
-            const ehcachePath = `${SERVER_MAIN_SRC_DIR}${packageFolder}/config/CacheConfiguration.java`;
-            jhipsterUtils.rewriteFile({
-                file: ehcachePath,
-                needle: 'jhipster-needle-ehcache-add-entry',
-                splicable: [`cm.createCache(${entry}, jcacheConfiguration);`
-                ]
-            }, this);
+            const cachePath = `${SERVER_MAIN_SRC_DIR}${packageFolder}/config/CacheConfiguration.java`;
+            if (cacheProvider === 'ehcache') {
+                jhipsterUtils.rewriteFile({
+                    file: cachePath,
+                    needle: 'jhipster-needle-ehcache-add-entry',
+                    splicable: [`cm.createCache(${entry}, jcacheConfiguration);`
+                    ]
+                }, this);
+            } else if (cacheProvider === 'infinispan') {
+                jhipsterUtils.rewriteFile({
+                    file: cachePath,
+                    needle: 'jhipster-needle-infinispan-add-entry',
+                    splicable: [`registerPredefinedCache(${entry}, new JCache<Object, Object>(
+                cacheManager.getCache(${entry}).getAdvancedCache(), this,
+                ConfigurationAdapter.create()));`
+                    ]
+                }, this);
+            }
         } catch (e) {
             this.log(chalk.yellow(`\nUnable to add ${entry} to CacheConfiguration.java file.\n\t${e.message}`));
+            this.debug('Error:', e);
         }
     }
 
@@ -730,16 +854,17 @@ module.exports = class extends Generator {
                 file: fullPath,
                 needle,
                 splicable: [
-                    `<include file="classpath:config/liquibase/changelog/${changelogName}.xml" relativeToChangelogFile="false"/>`
+                    `<include file="config/liquibase/changelog/${changelogName}.xml" relativeToChangelogFile="false"/>`
                 ]
             }, this);
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + changelogName}.xml ${chalk.yellow('not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
     /**
-     * A a new column to a Liquibase changelog file for entity.
+     * Add a new column to a Liquibase changelog file for entity.
      *
      * @param {string} filePath - The full path of the changelog file.
      * @param {string} content - The content to be added as column, can have multiple columns as well
@@ -755,12 +880,35 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + filePath + chalk.yellow(' or missing required jhipster-needle. Column not added.\n') + e);
+            this.debug('Error:', e);
+        }
+    }
+
+    /**
+     * Add a new changeset to a Liquibase changelog file for entity.
+     *
+     * @param {string} filePath - The full path of the changelog file.
+     * @param {string} content - The content to be added as changeset
+     */
+    addChangesetToLiquibaseEntityChangelog(filePath, content) {
+        try {
+            jhipsterUtils.rewriteFile({
+                file: filePath,
+                needle: 'jhipster-needle-liquibase-add-changeset',
+                splicable: [
+                    content
+                ]
+            }, this);
+        } catch (e) {
+            this.log(chalk.yellow('\nUnable to find ') + filePath + chalk.yellow(' or missing required jhipster-needle. Changeset not added.\n') + e);
+            this.debug('Error:', e);
         }
     }
 
     /**
      * Add a new social button in the login and register modules
      *
+     * @param {boolean} isUseSass - flag indicating if sass should be used
      * @param {string} socialName - name of the social module. ex: 'facebook'
      * @param {string} socialParameter - parameter to send to social connection ex: 'public_profile,email'
      * @param {string} buttonColor - color of the social button. ex: '#3b5998'
@@ -820,6 +968,7 @@ module.exports = class extends Generator {
             this.addMainCSSStyle(isUseSass, buttonStyle, `Add sign in style for ${socialName}`);
         } catch (e) {
             this.log(chalk.yellow(`\nUnable to add social button modification.\n${e}`));
+            this.debug('Error:', e);
         }
     }
 
@@ -871,12 +1020,14 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Social connection ') + e} ${chalk.yellow('not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
     /**
      * Add new css style to the angular application in "main.css".
      *
+     * @param {boolean} isUseSass - flag indicating if sass should be used
      * @param {string} style - css to add in the file
      * @param {string} comment - comment to add before css code
      *
@@ -916,6 +1067,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Style not added to JHipster app.\n'));
+            this.debug('Error:', e);
         }
     }
 
@@ -958,8 +1110,82 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Style not added to JHipster app.\n'));
+            this.debug('Error:', e);
         }
     }
+
+    /**
+     * Add new scss style to the angular application in "vendor.scss".
+     *
+     * @param {string} style - scss to add in the file
+     * @param {string} comment - comment to add before css code
+     *
+     * example:
+     *
+     * style = '.success {\n     @extend .message;\n    border-color: green;\n}'
+     * comment = 'Message'
+     *
+     * * ==========================================================================
+     * Message
+     * ========================================================================== *
+     * .success {
+     *     @extend .message;
+     *     border-color: green;
+     * }
+     *
+     */
+    addVendorSCSSStyle(style, comment) {
+        const fullPath = `${CLIENT_MAIN_SRC_DIR}content/scss/vendor.scss`;
+        let styleBlock = '';
+        if (comment) {
+            styleBlock += '/* ==========================================================================\n';
+            styleBlock += `${comment}\n`;
+            styleBlock += '========================================================================== */\n';
+        }
+        styleBlock += `${style}\n`;
+        try {
+            jhipsterUtils.rewriteFile({
+                file: fullPath,
+                needle: 'jhipster-needle-scss-add-vendor',
+                splicable: [
+                    styleBlock
+                ]
+            }, this);
+        } catch (e) {
+            this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Style not added to JHipster app.\n'));
+            this.debug('Error:', e);
+        }
+    }
+
+    /**
+     * Copy third-party library resources path.
+     *
+     * @param {string} sourceFolder - third-party library resources source path
+     * @param {string} targetFolder - third-party library resources destination path
+     */
+    copyExternalAssetsInWebpack(sourceFolder, targetFolder) {
+        const from = `${CLIENT_MAIN_SRC_DIR}content/${sourceFolder}/`;
+        const to = `content/${targetFolder}/`;
+        const webpackDevPath = `${CLIENT_WEBPACK_DIR}/webpack.common.js`;
+        let assetBlock = '';
+        if (sourceFolder && targetFolder) {
+            assetBlock = `{ from: './${from}', to: '${to}' },`;
+        }
+
+        try {
+            jhipsterUtils.rewriteFile({
+                file: webpackDevPath,
+                needle: 'jhipster-needle-add-assets-to-webpack',
+                splicable: [
+                    assetBlock
+                ]
+            }, this);
+        } catch (e) {
+            this.log(chalk.yellow('\nUnable to find ') + webpackDevPath + chalk.yellow(' or missing required jhipster-needle. Resource path not added to JHipster app.\n'));
+            this.debug('Error:', e);
+        }
+    }
+
 
     /**
      * Add a new Maven dependency.
@@ -991,6 +1217,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Reference to ')}maven dependency (groupId: ${groupId}, artifactId:${artifactId}, version:${version})${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -1024,6 +1251,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Reference to ')}maven plugin (groupId: ${groupId}, artifactId:${artifactId}, version:${version})${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -1046,6 +1274,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Reference to ')}classpath: ${group}:${name}:${version}${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -1069,6 +1298,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(`${chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + group}:${name}:${version}${chalk.yellow(' not added.\n')}`);
+            this.debug('Error:', e);
         }
     }
 
@@ -1089,6 +1319,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Reference to ') + name + chalk.yellow(' not added.\n'));
+            this.debug('Error:', e);
         }
     }
 
@@ -1136,28 +1367,28 @@ module.exports = class extends Generator {
         const _this = generator || this;
         let regex;
         switch (action) {
-        case 'stripHtml' :
+        case 'stripHtml':
             regex = new RegExp([
-                /( (data-t|jhiT)ranslate="([a-zA-Z0-9 +{}'_](\.)?)+")/,                    // data-translate or jhiTranslate
-                /( translate(-v|V)alues="\{([a-zA-Z]|\d|:|\{|\}|\[|\]|-|'|\s|\.|_)*?\}")/,    // translate-values or translateValues
-                /( translate-compile)/,                                                         // translate-compile
-                /( translate-value-max="[0-9{}()|]*")/,                                   // translate-value-max
+                /( (data-t|jhiT)ranslate="([a-zA-Z0-9 +{}'_](\.)?)+")/, // data-translate or jhiTranslate
+                /( translate(-v|V)alues="\{([a-zA-Z]|\d|:|\{|\}|\[|\]|-|'|\s|\.|_)*?\}")/, // translate-values or translateValues
+                /( translate-compile)/, // translate-compile
+                /( translate-value-max="[0-9{}()|]*")/, // translate-value-max
             ].map(r => r.source).join('|'), 'g');
 
             jhipsterUtils.copyWebResource(source, dest, regex, 'html', _this, opt, template);
             break;
-        case 'stripJs' :
+        case 'stripJs':
             regex = new RegExp([
                 /(,[\s]*(resolve):[\s]*[{][\s]*(translatePartialLoader)['a-zA-Z0-9$,(){.<%=\->;\s:[\]]*(;[\s]*\}\][\s]*\}))/, // ng1 resolve block
-                /([\s]import\s\{\s?JhiLanguageService\s?\}\sfrom\s["|']ng-jhipster["|'];)/,       // ng2 import jhiLanguageService
-                /(,?\s?JhiLanguageService,?\s?)/,                                                          // ng2 import jhiLanguageService
-                /(private\s[a-zA-Z0-9]*(L|l)anguageService\s?:\s?JhiLanguageService\s?,*[\s]*)/,          // ng2 jhiLanguageService constructor argument
+                /([\s]import\s\{\s?JhiLanguageService\s?\}\sfrom\s["|']ng-jhipster["|'];)/, // ng2 import jhiLanguageService
+                /(,?\s?JhiLanguageService,?\s?)/, // ng2 import jhiLanguageService
+                /(private\s[a-zA-Z0-9]*(L|l)anguageService\s?:\s?JhiLanguageService\s?,*[\s]*)/, // ng2 jhiLanguageService constructor argument
                 /(this\.[a-zA-Z0-9]*(L|l)anguageService\.setLocations\(\[['"a-zA-Z0-9\-_,\s]+\]\);[\s]*)/, // jhiLanguageService invocations
             ].map(r => r.source).join('|'), 'g');
 
             jhipsterUtils.copyWebResource(source, dest, regex, 'js', _this, opt, template);
             break;
-        case 'copy' :
+        case 'copy':
             _this.copy(source, dest);
             break;
         default:
@@ -1194,7 +1425,7 @@ module.exports = class extends Generator {
     /**
      * Rewrite the specified file with provided content at the needle location
      *
-     * @param {string} fullPath - path of the source file to rewrite
+     * @param {string} filePath - path of the source file to rewrite
      * @param {string} needle - needle to look for where content will be inserted
      * @param {string} content - content to be written
      */
@@ -1209,13 +1440,14 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + filePath + chalk.yellow(' or missing required needle. File rewrite failed.\n'));
+            this.debug('Error:', e);
         }
     }
 
     /**
      * Replace the pattern/regex with provided content
      *
-     * @param {string} fullPath - path of the source file to rewrite
+     * @param {string} filePath - path of the source file to rewrite
      * @param {string} pattern - pattern to look for where content will be replaced
      * @param {string} content - content to be written
      * @param {string} regex - true if pattern is regex
@@ -1230,6 +1462,7 @@ module.exports = class extends Generator {
             }, this);
         } catch (e) {
             this.log(chalk.yellow('\nUnable to find ') + filePath + chalk.yellow(' or missing required pattern. File rewrite failed.\n') + e);
+            this.debug('Error:', e);
         }
     }
 
@@ -1265,6 +1498,7 @@ module.exports = class extends Generator {
             } catch (err) {
                 error = true;
                 this.log(chalk.red('The JHipster module configuration file could not be read!'));
+                this.debug('Error:', err);
             }
             if (!error && !duplicate) {
                 modules.push(moduleConfig);
@@ -1272,6 +1506,7 @@ module.exports = class extends Generator {
             }
         } catch (err) {
             this.log(`\n${chalk.bold.red('Could not add jhipster module configuration')}`);
+            this.debug('Error:', err);
         }
     }
 
@@ -1289,6 +1524,7 @@ module.exports = class extends Generator {
             this.fs.writeJSON(file, entityJson, null, 4);
         } catch (err) {
             this.log(chalk.red('The JHipster entity configuration file could not be read!') + err);
+            this.debug('Error:', err);
         }
     }
 
@@ -1310,24 +1546,43 @@ module.exports = class extends Generator {
 
     /**
      * Call all the module hooks with the given options.
-     * @param {string} hookFor : "app" or "entity"
-     * @param {string} hookType : "pre" or "post"
-     * @param options : the options to pass to the hooks
+     * @param {string} hookFor - "app" or "entity"
+     * @param {string} hookType - "pre" or "post"
+     * @param {any} options - the options to pass to the hooks
+     * @param {function} cb - callback to trigger at the end
      */
-    callHooks(hookFor, hookType, options) {
+    callHooks(hookFor, hookType, options, cb) {
         const modules = this.getModuleHooks();
         // run through all module hooks, which matches the hookFor and hookType
         modules.forEach((module) => {
+            this.debug('Composing module with config:', module);
             if (module.hookFor === hookFor && module.hookType === hookType) {
                 // compose with the modules callback generator
+                const hook = module.generatorCallback.split(':')[1];
+                let generatorTocall = path.join(process.cwd(), 'node_modules', module.npmPackageName, 'generators', hook || 'app');
                 try {
-                    this.composeWith(module.generatorCallback, options);
+                    if (!fs.existsSync(generatorTocall)) {
+                        this.debug('using global module as local version could not be found in node_modules');
+                        generatorTocall = path.join(module.npmPackageName, 'generators', hook || 'app');
+                    }
+                    this.debug('Running yeoman compose with options: ', generatorTocall, options);
+                    this.composeWith(require.resolve(generatorTocall), options);
                 } catch (err) {
-                    this.log(chalk.red('Could not compose module ') + chalk.bold.yellow(module.npmPackageName) +
-                        chalk.red('. \nMake sure you have installed the module with ') + chalk.bold.yellow(`'npm -g ${module.npmPackageName}'`));
+                    this.debug('ERROR:', err);
+                    try {
+                        // Fallback for legacy modules
+                        this.debug('Running yeoman legacy compose with options: ', module.generatorCallback, options);
+                        this.composeWith(module.generatorCallback, options);
+                    } catch (e) {
+                        this.log(chalk.red('Could not compose module ') + chalk.bold.yellow(module.npmPackageName) +
+                            chalk.red('. \nMake sure you have installed the module with ') + chalk.bold.yellow(`'npm install -g ${module.npmPackageName}'`));
+                        this.debug('ERROR:', e);
+                    }
                 }
             }
         });
+        this.debug('calling callback');
+        cb && cb();
     }
 
     /**
@@ -1341,6 +1596,7 @@ module.exports = class extends Generator {
             entityJson = this.fs.readJSON(path.join(JHIPSTER_CONFIG_DIR, `${_.upperFirst(file)}.json`));
         } catch (err) {
             this.log(chalk.red(`The JHipster entity configuration file could not be read for file ${file}!`) + err);
+            this.debug('Error:', err);
         }
 
         return entityJson;
@@ -1356,14 +1612,21 @@ module.exports = class extends Generator {
             return e1.definition.changelogDate - e2.definition.changelogDate;
         }
 
-        if (shelljs.test('-d', JHIPSTER_CONFIG_DIR)) {
-            shelljs.ls(path.join(JHIPSTER_CONFIG_DIR, '*.json')).forEach((file) => {
-                const definition = this.fs.readJSON(file);
-                entities.push({ name: path.basename(file, '.json'), definition });
-            });
+        if (!shelljs.test('-d', JHIPSTER_CONFIG_DIR)) {
+            return entities;
         }
 
-        return entities.sort(isBefore);
+        return shelljs.ls(path.join(JHIPSTER_CONFIG_DIR, '*.json')).reduce((acc, file) => {
+            try {
+                const definition = jhiCore.readEntityJSON(file);
+                acc.push({ name: path.basename(file, '.json'), definition });
+            } catch (error) {
+                // not an entity file / malformed?
+                this.warning(`Unable to parse entity file ${file}`);
+                this.debug('Error:', error);
+            }
+            return acc;
+        }, entities).sort(isBefore);
     }
 
     /**
@@ -1393,7 +1656,7 @@ module.exports = class extends Generator {
     }
 
     /**
-     * executes a git command using shellJS
+     * executes a Git command using shellJS
      * gitExec(args [, options ], callback)
      *
      * @param {string|array} args - can be an array of arguments or a string command
@@ -1405,13 +1668,17 @@ module.exports = class extends Generator {
         if (arguments.length < 3) {
             options = {};
         }
-        options.async = true;
-        options.silent = true;
+        if (options.async === undefined) options.async = true;
+        if (options.silent === undefined) options.silent = true;
+        if (options.trace === undefined) options.trace = true;
 
         if (!Array.isArray(args)) {
             args = [args];
         }
         const command = `git ${args.join(' ')}`;
+        if (options.trace) {
+            this.info(command);
+        }
         shelljs.exec(command, options, callback);
     }
 
@@ -1517,16 +1784,35 @@ module.exports = class extends Generator {
     /**
      * Print a warning message.
      *
-     * @param {string} value - message to print
+     * @param {string} msg - message to print
      */
     warning(msg) {
         this.log(`${chalk.yellow.bold('WARNING!')} ${msg}`);
     }
 
     /**
+     * Print an info message.
+     *
+     * @param {string} msg - message to print
+     */
+    info(msg) {
+        this.log.info(msg);
+    }
+
+    /**
+     * Print a success message.
+     *
+     * @param {string} msg - message to print
+     */
+    success(msg) {
+        this.log.ok(msg);
+    }
+
+    /**
      * Generate a KeyStore for uaa authorization server.
      */
     generateKeyStore() {
+        const done = this.async();
         const keyStoreFile = `${SERVER_MAIN_RES_DIR}keystore.jks`;
         if (this.fs.exists(keyStoreFile)) {
             this.log(chalk.cyan(`\nKeyStore '${keyStoreFile}' already exists. Leaving unchanged.\n`));
@@ -1537,7 +1823,8 @@ module.exports = class extends Generator {
             if (javaHome) {
                 keytoolPath = `${javaHome}/bin/`;
             }
-            shelljs.exec(`"${keytoolPath}keytool" -genkey -noprompt ` +
+            shelljs.exec(
+                `"${keytoolPath}keytool" -genkey -noprompt ` +
                 '-keyalg RSA ' +
                 '-alias selfsigned ' +
                 `-keystore ${keyStoreFile} ` +
@@ -1545,13 +1832,15 @@ module.exports = class extends Generator {
                 '-keypass password ' +
                 '-keysize 2048 ' +
                 `-dname "CN=Java Hipster, OU=Development, O=${this.packageName}, L=, ST=, C="`
-            , (code) => {
-                if (code !== 0) {
-                    this.error('\nFailed to create a KeyStore with \'keytool\'', code);
-                } else {
-                    this.log(chalk.green(`\nKeyStore '${keyStoreFile}' generated successfully.\n`));
+                , (code) => {
+                    if (code !== 0) {
+                        this.error('\nFailed to create a KeyStore with \'keytool\'', code);
+                    } else {
+                        this.log(chalk.green(`\nKeyStore '${keyStoreFile}' generated successfully.\n`));
+                    }
+                    done();
                 }
-            });
+            );
         }
     }
 
@@ -1559,15 +1848,16 @@ module.exports = class extends Generator {
      * Prints a JHipster logo.
      */
     printJHipsterLogo() {
-        this.log(`${chalk.green('\n        ██╗')}${chalk.red(' ██╗   ██╗ ████████╗ ███████╗   ██████╗ ████████╗ ████████╗ ███████╗')}`);
+        this.log('\n');
+        this.log(`${chalk.green('        ██╗')}${chalk.red(' ██╗   ██╗ ████████╗ ███████╗   ██████╗ ████████╗ ████████╗ ███████╗')}`);
         this.log(`${chalk.green('        ██║')}${chalk.red(' ██║   ██║ ╚══██╔══╝ ██╔═══██╗ ██╔════╝ ╚══██╔══╝ ██╔═════╝ ██╔═══██╗')}`);
         this.log(`${chalk.green('        ██║')}${chalk.red(' ████████║    ██║    ███████╔╝ ╚█████╗     ██║    ██████╗   ███████╔╝')}`);
         this.log(`${chalk.green('  ██╗   ██║')}${chalk.red(' ██╔═══██║    ██║    ██╔════╝   ╚═══██╗    ██║    ██╔═══╝   ██╔══██║')}`);
         this.log(`${chalk.green('  ╚██████╔╝')}${chalk.red(' ██║   ██║ ████████╗ ██║       ██████╔╝    ██║    ████████╗ ██║  ╚██╗')}`);
         this.log(`${chalk.green('   ╚═════╝ ')}${chalk.red(' ╚═╝   ╚═╝ ╚═══════╝ ╚═╝       ╚═════╝     ╚═╝    ╚═══════╝ ╚═╝   ╚═╝')}\n`);
-        this.log(chalk.white.bold('                            https://jhipster.github.io\n'));
+        this.log(chalk.white.bold('                            http://www.jhipster.tech\n'));
         this.log(chalk.white('Welcome to the JHipster Generator ') + chalk.yellow(`v${packagejs.version}`));
-        this.log(chalk.white(`Documentation for creating an application: ${chalk.yellow('https://jhipster.github.io/creating-an-app/')}`));
+        this.log(chalk.white(`Documentation for creating an application: ${chalk.yellow('http://www.jhipster.tech/creating-an-app/')}`));
         this.log(chalk.white(`Application files will be generated in folder: ${chalk.yellow(process.cwd())}`));
     }
 
@@ -1579,10 +1869,8 @@ module.exports = class extends Generator {
             const done = this.async();
             shelljs.exec(`npm show ${GENERATOR_JHIPSTER} version`, { silent: true }, (code, stdout, stderr) => {
                 if (!stderr && semver.lt(packagejs.version, stdout)) {
-                    this.log(
-                        `${chalk.yellow(' ______________________________________________________________________________\n\n') +
-                        chalk.yellow('  JHipster update available: ') + chalk.green.bold(stdout.replace('\n', '')) + chalk.gray(` (current: ${packagejs.version})`)}\n`
-                    );
+                    this.log(`${chalk.yellow(' ______________________________________________________________________________\n\n') +
+                        chalk.yellow('  JHipster update available: ') + chalk.green.bold(stdout.replace('\n', '')) + chalk.gray(` (current: ${packagejs.version})`)}\n`);
                     if (this.useYarn) {
                         this.log(chalk.yellow(`  Run ${chalk.magenta(`yarn global upgrade ${GENERATOR_JHIPSTER}`)} to update.\n`));
                     } else {
@@ -1593,6 +1881,7 @@ module.exports = class extends Generator {
                 done();
             });
         } catch (err) {
+            this.debug('Error:', err);
             // fail silently as this function doesn't affect normal generator flow
         }
     }
@@ -1608,6 +1897,13 @@ module.exports = class extends Generator {
      * get the Angular 2+ application name.
      */
     getAngular2AppName() {
+        return this.getAngularXAppName();
+    }
+
+    /**
+     * get the Angular 2+ application name.
+     */
+    getAngularXAppName() {
         return _.upperFirst(_.camelCase(this.baseName, true));
     }
 
@@ -1642,7 +1938,7 @@ module.exports = class extends Generator {
                 }
                 return true;
             },
-            message: response => this.getNumberedQuestion('What is the base name of your application?', true),
+            message: 'What is the base name of your application?',
             default: defaultAppBaseName
         }).then((prompt) => {
             generator.baseName = prompt.baseName;
@@ -1663,14 +1959,14 @@ module.exports = class extends Generator {
             {
                 type: 'confirm',
                 name: 'enableTranslation',
-                message: response => this.getNumberedQuestion('Would you like to enable internationalization support?', true),
+                message: 'Would you like to enable internationalization support?',
                 default: true
             },
             {
                 when: response => response.enableTranslation === true,
                 type: 'list',
                 name: 'nativeLanguage',
-                message: 'Please choose the native language of the application?',
+                message: 'Please choose the native language of the application',
                 choices: languageOptions,
                 default: 'en',
                 store: true
@@ -1706,27 +2002,26 @@ module.exports = class extends Generator {
             // skip client if app type is server
             const skipClient = type && type === 'server';
             generator.composeWith(require.resolve('./languages'), {
+                configOptions,
                 'skip-install': true,
                 'skip-server': skipServer,
                 'skip-client': skipClient,
-                configOptions,
+                languages: generator.languages,
                 force: generator.options.force,
-                languages: generator.languages
+                debug: generator.options.debug
             });
         }
     }
 
     /**
+     * @Deprecated
      * Add numbering to a question
      *
      * @param {String} msg - question text
      * @param {boolean} cond - increment question
      */
     getNumberedQuestion(msg, cond) {
-        if (cond) {
-            ++this.currentQuestion;
-        }
-        return `(${this.currentQuestion}/${this.totalQuestions}) ${msg}`;
+        return msg;
     }
 
     /**
@@ -1748,7 +2043,7 @@ module.exports = class extends Generator {
         }
         buildCmd += ` -P${profile}`;
         const child = {};
-        child.stdout = exec(buildCmd, cb).stdout;
+        child.stdout = exec(buildCmd, { maxBuffer: 1024 * 10000 }, cb).stdout;
         child.buildCmd = buildCmd;
 
         return child;
@@ -1801,477 +2096,7 @@ module.exports = class extends Generator {
                 }
             }
         }
-        if (this.isDebugEnabled) {
-            this.debug(`Time taken to write files: ${new Date() - startTime}ms`);
-        }
+        this.debug(`Time taken to write files: ${new Date() - startTime}ms`);
         return filesOut;
-    }
-
-    /*= =======================================================================*/
-    /* private methods use within generator (not exposed to modules)*/
-    /*= =======================================================================*/
-
-    installI18nClientFilesByLanguage(_this, webappDir, lang) {
-        const generator = _this || this;
-        generator.copyI18nFilesByName(generator, webappDir, 'audits.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'configuration.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'error.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'gateway.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'login.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'logs.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'home.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'metrics.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'password.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'register.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'sessions.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'settings.json', lang);
-        generator.copyI18nFilesByName(generator, webappDir, 'user-management.json', lang);
-
-        // tracker.json for Websocket
-        if (this.websocket === 'spring-websocket') {
-            generator.copyI18nFilesByName(generator, webappDir, 'tracker.json', lang);
-        }
-
-        if (this.enableSocialSignIn) {
-            generator.copyI18nFilesByName(generator, webappDir, 'social.json', lang);
-        }
-
-        // Templates
-        generator.template(`${webappDir}i18n/${lang}/_activate.json`, `${webappDir}i18n/${lang}/activate.json`);
-        generator.template(`${webappDir}i18n/${lang}/_global.json`, `${webappDir}i18n/${lang}/global.json`);
-        generator.template(`${webappDir}i18n/${lang}/_health.json`, `${webappDir}i18n/${lang}/health.json`);
-        generator.template(`${webappDir}i18n/${lang}/_reset.json`, `${webappDir}i18n/${lang}/reset.json`);
-    }
-
-    installI18nServerFilesByLanguage(_this, resourceDir, lang) {
-        const generator = _this || this;
-        // Template the message server side properties
-        const langProp = lang.replace(/-/g, '_');
-        generator.template(`${resourceDir}i18n/_messages_${langProp}.properties`, `${resourceDir}i18n/messages_${langProp}.properties`);
-    }
-
-    copyI18n(language, prefix) {
-        try {
-            this.template(`${prefix}/i18n/_entity_${language}.json`, `${CLIENT_MAIN_SRC_DIR}i18n/${language}/${this.entityInstance}.json`);
-            this.addEntityTranslationKey(this.entityTranslationKeyMenu, this.entityClass, language);
-        } catch (e) {
-            // An exception is thrown if the folder doesn't exist
-            // do nothing
-        }
-    }
-
-    copyEnumI18n(language, enumInfo, prefix) {
-        try {
-            this.template(`${prefix}/i18n/_enum.json`, `${CLIENT_MAIN_SRC_DIR}i18n/${language}/${enumInfo.enumInstance}.json`, this, {}, enumInfo);
-        } catch (e) {
-            // An exception is thrown if the folder doesn't exist
-            // do nothing
-        }
-    }
-
-    updateLanguagesInLanguageConstant(languages) {
-        const fullPath = `${CLIENT_MAIN_SRC_DIR}app/components/language/language.constants.js`;
-        try {
-            let content = '.constant(\'LANGUAGES\', [\n';
-            for (let i = 0, len = languages.length; i < len; i++) {
-                const language = languages[i];
-                content += `            '${language}'${i !== languages.length - 1 ? ',' : ''}\n`;
-            }
-            content +=
-                '            // jhipster-needle-i18n-language-constant - JHipster will add/remove languages in this array\n' +
-                '        ]';
-
-            jhipsterUtils.replaceContent({
-                file: fullPath,
-                pattern: /\.constant.*LANGUAGES.*\[([^\]]*jhipster-needle-i18n-language-constant[^\]]*)\]/g,
-                content
-            }, this);
-        } catch (e) {
-            this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. LANGUAGE constant not updated with languages: ') + languages + chalk.yellow(' since block was not found. Check if you have enabled translation support.\n'));
-        }
-    }
-
-    updateLanguagesInLanguageConstantNG2(languages) {
-        const fullPath = `${CLIENT_MAIN_SRC_DIR}app/shared/language/language.constants.ts`;
-        try {
-            let content = 'export const LANGUAGES: string[] = [\n';
-            for (let i = 0, len = languages.length; i < len; i++) {
-                const language = languages[i];
-                content += `    '${language}'${i !== languages.length - 1 ? ',' : ''}\n`;
-            }
-            content +=
-                '    // jhipster-needle-i18n-language-constant - JHipster will add/remove languages in this array\n' +
-                '];';
-
-            jhipsterUtils.replaceContent({
-                file: fullPath,
-                pattern: /export.*LANGUAGES.*\[([^\]]*jhipster-needle-i18n-language-constant[^\]]*)\];/g,
-                content
-            }, this);
-        } catch (e) {
-            this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. LANGUAGE constant not updated with languages: ') + languages + chalk.yellow(' since block was not found. Check if you have enabled translation support.\n'));
-        }
-    }
-
-    updateLanguagesInWebpack(languages) {
-        const fullPath = 'webpack/webpack.common.js';
-        try {
-            let content = 'groupBy: [\n';
-            for (let i = 0, len = languages.length; i < len; i++) {
-                const language = languages[i];
-                content += `                        { pattern: "./src/main/webapp/i18n/${language}/*.json", fileName: "./${this.BUILD_DIR}www/i18n/${language}.json" }${i !== languages.length - 1 ? ',' : ''}\n`;
-            }
-            content +=
-                '                        // jhipster-needle-i18n-language-webpack - JHipster will add/remove languages in this array\n' +
-                '                    ]';
-
-            jhipsterUtils.replaceContent({
-                file: fullPath,
-                pattern: /groupBy:.*\[([^\]]*jhipster-needle-i18n-language-webpack[^\]]*)\]/g,
-                content
-            }, this);
-        } catch (e) {
-            this.log(chalk.yellow('\nUnable to find ') + fullPath + chalk.yellow(' or missing required jhipster-needle. Webpack language task not updated with languages: ') + languages + chalk.yellow(' since block was not found. Check if you have enabled translation support.\n'));
-        }
-    }
-
-    insight(trackingCode = 'UA-46075199-2', packageName = packagejs.name, packageVersion = packagejs.version) {
-        const insight = new Insight({
-            trackingCode,
-            packageName,
-            packageVersion
-        });
-
-        insight.trackWithEvent = (category, action) => {
-            insight.track(category, action);
-            insight.trackEvent({
-                category,
-                action,
-                label: `${category} ${action}`,
-                value: 1
-            });
-        };
-
-        return insight;
-    }
-
-    removeFile(file) {
-        if (shelljs.test('-f', file)) {
-            this.log(`Removing the file - ${file}`);
-            shelljs.rm(file);
-        }
-    }
-
-    removeFolder(folder) {
-        if (shelljs.test('-d', folder)) {
-            this.log(`Removing the folder - ${folder}`);
-            shelljs.rm('-rf', folder);
-        }
-    }
-
-    getDefaultAppName() {
-        return (/^[a-zA-Z0-9_]+$/.test(path.basename(process.cwd()))) ? path.basename(process.cwd()) : 'jhipster';
-    }
-
-    formatAsClassJavadoc(text) {
-        return jhipsterUtils.getJavadoc(text, 0);
-    }
-
-    formatAsFieldJavadoc(text) {
-        return jhipsterUtils.getJavadoc(text, 4);
-    }
-
-    formatAsApiDescription(text) {
-        const rows = text.split('\n');
-        let description = rows[0];
-        for (let i = 1; i < rows.length; i++) {
-            // discard empty rows
-            if (rows[i] !== '') {
-                // if simple text then put space between row strings
-                if (!description.endsWith('>') && !rows[i].startsWith('<')) {
-                    description += ' ';
-                }
-                description += rows[i];
-            }
-        }
-        return description;
-    }
-
-    isNumber(input) {
-        if (isNaN(this.filterNumber(input))) {
-            return false;
-        }
-        return true;
-    }
-
-    isSignedNumber(input) {
-        if (isNaN(this.filterNumber(input, true))) {
-            return false;
-        }
-        return true;
-    }
-
-    isSignedDecimalNumber(input) {
-        if (isNaN(this.filterNumber(input, true, true))) {
-            return false;
-        }
-        return true;
-    }
-
-    filterNumber(input, isSigned, isDecimal) {
-        const signed = isSigned ? '(\\-|\\+)?' : '';
-        const decimal = isDecimal ? '(\\.[0-9]+)?' : '';
-        const regex = new RegExp(`^${signed}([0-9]+${decimal})$`);
-
-        if (regex.test(input)) return Number(input);
-
-        return NaN;
-    }
-
-    isGitInstalled(callback) {
-        this.gitExec('--version', (code) => {
-            if (code !== 0) {
-                this.warning('git is not found on your computer.\n',
-                    ` Install git: ${chalk.yellow('https://git-scm.com/')}`
-                );
-            }
-            if (callback) callback(code);
-        });
-    }
-
-    getOptionFromArray(array, option) {
-        let optionValue = false;
-        array.forEach((value) => {
-            if (_.includes(value, option)) {
-                optionValue = value.split(':')[1];
-            }
-        });
-        optionValue = optionValue === 'true' ? true : optionValue;
-        return optionValue;
-    }
-
-    /**
-     * get hibernate SnakeCase in JHipster preferred style.
-     *
-     * @param {string} value - table column name or table name string
-     * @see org.springframework.boot.orm.jpa.hibernate.SpringNamingStrategy
-     */
-    hibernateSnakeCase(value) {
-        let res = '';
-        if (value) {
-            value = value.replace('.', '_');
-            res = value[0];
-            for (let i = 1, len = value.length - 1; i < len; i++) {
-                if (value[i - 1] !== value[i - 1].toUpperCase() &&
-                    value[i] !== value[i].toLowerCase() &&
-                    value[i + 1] !== value[i + 1].toUpperCase()
-                ) {
-                    res += `_${value[i]}`;
-                } else {
-                    res += value[i];
-                }
-            }
-            res += value[value.length - 1];
-            res = res.toLowerCase();
-        }
-        return res;
-    }
-
-    contains(array, item) {
-        return _.includes(array, item);
-    }
-    /**
-     * Function to issue a https get request, and process the result
-     *
-     *  @param {string} url - the url to fetch
-     *  @param onSuccess - function, which gets called when the request succeeds, with the body of the response
-     *  @param onFail - callback when the get failed.
-     */
-    httpsGet(url, onSuccess, onFail) {
-        https.get(url, (res) => {
-            let body = '';
-            res.on('data', (chunk) => {
-                body += chunk;
-            });
-            res.on('end', () => {
-                onSuccess(body);
-            });
-        }).on('error', onFail);
-    }
-
-    /**
-     * Function to print a proper array with simple quoted strings
-     *
-     *  @param {array} array - the array to print
-     */
-    toArrayString(array) {
-        return `['${array.join('\', \'')}']`;
-    }
-
-    /**
-     * Strip margin indicated by pipe `|` from a string literal
-     */
-    stripMargin(content) {
-        return content.replace(/^[ ]*\|/gm, '');
-    }
-
-    /**
-     * Utility function to copy and process templates.
-     *
-     * @param {string} source
-     * @param {string} destination
-     * @param {*} generator
-     * @param {*} options
-     * @param {*} context
-     */
-    template(source, destination, generator, options = {}, context) {
-        const _this = generator || this;
-        const _context = context || _this;
-        jhipsterUtils.renderContent(source, _this, _context, options, (res) => {
-            _this.fs.write(_this.destinationPath(destination), res);
-        });
-    }
-
-    /**
-     * Utility function to copy files.
-     *
-     * @param {string} source - Original file.
-     * @param {string} destination - The resulting file.
-     */
-    copy(source, destination) {
-        this.fs.copy(this.templatePath(source), this.destinationPath(destination));
-    }
-
-    /**
-     * Print a debug message.
-     *
-     * @param {string} value - message to print
-     */
-    debug(msg) {
-        this.log(`${chalk.yellow.bold('DEBUG!')} ${msg}`);
-    }
-
-    checkJava() {
-        if (this.skipChecks || this.skipServer) return;
-        const done = this.async();
-        exec('java -version', (err, stdout, stderr) => {
-            if (err) {
-                this.warning('Java 8 is not found on your computer.');
-            } else {
-                const javaVersion = stderr.match(/(?:java|openjdk) version "(.*)"/)[1];
-                if (!javaVersion.match(/1\.8/)) {
-                    this.warning(`Java 8 is not found on your computer. Your Java version is: ${chalk.yellow(javaVersion)}`);
-                }
-            }
-            done();
-        });
-    }
-
-    checkNode() {
-        if (this.skipChecks || this.skipServer) return;
-        const done = this.async();
-        exec('node -v', (err, stdout, stderr) => {
-            if (err) {
-                this.warning('NodeJS is not found on your system.');
-            } else {
-                const nodeVersion = semver.clean(stdout);
-                const nodeFromPackageJson = packagejs.engines.node;
-                if (!semver.satisfies(nodeVersion, nodeFromPackageJson)) {
-                    this.warning(`Your NodeJS version is too old (${nodeVersion}). You should use at least NodeJS ${chalk.bold(nodeFromPackageJson)}`);
-                }
-            }
-            done();
-        });
-    }
-
-    checkGit() {
-        if (this.skipChecks || this.skipClient) return;
-        const done = this.async();
-        this.isGitInstalled((code) => {
-            this.gitInstalled = code === 0;
-            done();
-        });
-    }
-
-    checkGitConnection() {
-        if (!this.gitInstalled) return;
-        const done = this.async();
-        exec('git ls-remote git://github.com/jhipster/generator-jhipster.git HEAD', { timeout: 15000 }, (error) => {
-            if (error) {
-                this.warning(`Failed to connect to "git://github.com"
-                     1. Check your Internet connection.
-                     2. If you are using an HTTP proxy, try this command: ${chalk.yellow('git config --global url."https://".insteadOf git://')}`
-                );
-            }
-            done();
-        });
-    }
-
-    checkYarn() {
-        if (this.skipChecks || !this.useYarn) return;
-        const done = this.async();
-        exec('yarn --version', (err) => {
-            if (err) {
-                this.warning('yarn is not found on your computer.\n',
-                    ' Using npm instead');
-                this.useYarn = false;
-            } else {
-                this.useYarn = true;
-            }
-            done();
-        });
-    }
-
-    generateEntityQueries(relationships, entityInstance, dto) {
-        const queries = [];
-        const variables = [];
-        let hasManyToMany = false;
-        relationships.forEach((relationship) => {
-            let query;
-            let variableName;
-            hasManyToMany = hasManyToMany || relationship.relationshipType === 'many-to-many';
-            if (relationship.relationshipType === 'one-to-one' && relationship.ownerSide === true && relationship.otherEntityName !== 'user') {
-                variableName = relationship.relationshipFieldNamePlural.toLowerCase();
-                if (variableName === entityInstance) {
-                    variableName += 'Collection';
-                }
-                const relationshipFieldName = `this.${entityInstance}.${relationship.relationshipFieldName}`;
-                const relationshipFieldNameIdCheck = dto === 'no' ?
-                    `!${relationshipFieldName} || !${relationshipFieldName}.id` :
-                    `!${relationshipFieldName}Id`;
-
-                query =
-        `this.${relationship.otherEntityName}Service
-            .query({filter: '${relationship.otherEntityRelationshipName.toLowerCase()}-is-null'})
-            .subscribe((res: ResponseWrapper) => {
-                if (${relationshipFieldNameIdCheck}) {
-                    this.${variableName} = res.json;
-                } else {
-                    this.${relationship.otherEntityName}Service
-                        .find(${relationshipFieldName}${dto === 'no' ? '.id' : 'Id'})
-                        .subscribe((subRes: ${relationship.otherEntityAngularName}) => {
-                            this.${variableName} = [subRes].concat(res.json);
-                        }, (subRes: ResponseWrapper) => this.onError(subRes.json));
-                }
-            }, (res: ResponseWrapper) => this.onError(res.json));`;
-            } else if (relationship.relationshipType !== 'one-to-many') {
-                variableName = relationship.otherEntityNameCapitalizedPlural.toLowerCase();
-                if (variableName === entityInstance) {
-                    variableName += 'Collection';
-                }
-                query =
-        `this.${relationship.otherEntityName}Service.query()
-            .subscribe((res: ResponseWrapper) => { this.${variableName} = res.json; }, (res: ResponseWrapper) => this.onError(res.json));`;
-            }
-            if (variableName && !this.contains(queries, query)) {
-                queries.push(query);
-                variables.push(`${variableName}: ${relationship.otherEntityAngularName}[];`);
-            }
-        });
-        return {
-            queries,
-            variables,
-            hasManyToMany
-        };
     }
 };

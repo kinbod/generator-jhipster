@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -84,7 +84,13 @@ function fonts() {
 }
 
 function common() {
-    return gulp.src([config.app + 'robots.txt', config.app + 'favicon.ico', config.app + '.htaccess'], { dot: true })
+    return gulp.src([
+        config.app + 'robots.txt',
+        config.app + 'favicon.ico',
+        config.app + '.htaccess',
+        // config.app + 'sw.js',
+        config.app + 'manifest.webapp'
+    ], { dot: true })
         .pipe(plumber({errorHandler: handleErrors}))
         .pipe(changed(config.dist))
         .pipe(gulp.dest(config.dist));

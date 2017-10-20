@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +29,7 @@ import {
     <%_ } _%>
     <%_ if (enableSocialSignIn) { _%>
     socialRegisterRoute,
-        <%_ if (authenticationType == 'jwt') { _%>
+        <%_ if (authenticationType === 'jwt') { _%>
     socialAuthRoute,
         <%_ } _%>
     <%_ } _%>
@@ -46,7 +46,7 @@ const ACCOUNT_ROUTES = [
     sessionsRoute,
     <%_ } _%>
     <%_ if (enableSocialSignIn) { _%>
-    <%_ if (authenticationType == 'jwt') { _%>
+    <%_ if (authenticationType === 'jwt') { _%>
     socialAuthRoute,
     <%_ } _%>
     socialRegisterRoute,

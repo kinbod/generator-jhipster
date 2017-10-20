@@ -1,7 +1,7 @@
 <%#
  Copyright 2013-2017 the original author or authors from the JHipster project.
 
- This file is part of the JHipster project, see https://jhipster.github.io/
+ This file is part of the JHipster project, see http://www.jhipster.tech/
  for more information.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import { JhiAlertService, JhiEventManager } from 'ng-jhipster';
+import { JhiEventManager } from 'ng-jhipster';
 
 import { User, UserService } from '../../shared';
 import { UserModalService } from './user-modal.service';
@@ -35,7 +35,6 @@ export class UserMgmtDeleteDialogComponent {
     constructor(
         private userService: UserService,
         public activeModal: NgbActiveModal,
-        private alertService: JhiAlertService,
         private eventManager: JhiEventManager
     ) {
     }
@@ -50,11 +49,6 @@ export class UserMgmtDeleteDialogComponent {
                 content: 'Deleted a user'});
             this.activeModal.dismiss(true);
         });
-        <%_ if (enableTranslation) { _%>
-        this.alertService.success('userManagement.deleted', { param : login }, null);
-        <%_ } else { _%>
-        this.alertService.success(`An user is deleted with identifier ${login}`, null, null);
-        <%_ } _%>
     }
 }
 
@@ -74,7 +68,7 @@ export class UserDeleteDialogComponent implements OnInit, OnDestroy {
 
     ngOnInit() {
         this.routeSub = this.route.params.subscribe((params) => {
-            this.modalRef = this.userModalService.open(UserMgmtDeleteDialogComponent, params['login']);
+            this.modalRef = this.userModalService.open(UserMgmtDeleteDialogComponent as Component, params['login']);
         });
     }
 
